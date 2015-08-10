@@ -77,6 +77,20 @@ gulp.task('version-hash', function () {
     );
 });
 
+gulp.task('version-image-hash', function () {
+    return gulp.src(
+        toAssetFiles(config.imageFiles)
+    )
+    .pipe(
+        resourceProcessor.custom(function (file, callback) {
+            var hash = resourceProcessor.hashMap[file.path];
+            if (hash) {
+                file.path = config.appendFileHash(file.path, hash);
+            }
+        })
+    );
+});
+
 // 建立静态资源依赖表
 gulp.task('version-amd-dependency', function () {
     return gulp.src(
@@ -99,6 +113,8 @@ gulp.task('version-css-dependency', function () {
         })
     );
 });
+
+
 
 // 引用替换
 gulp.task('version-html-replace', function () {
@@ -193,6 +209,7 @@ gulp.task(
     'version-batch',
     sequence(
         'version-hash',
+        'version-image-hash',
         ['version-amd-dependency', 'version-css-dependency'],
         ['version-html-replace', 'version-amd-replace', 'version-css-replace']
     )

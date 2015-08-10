@@ -203,10 +203,10 @@ if (exports.buildSrc) {
 
 if (exports.buildDep) {
     exports.amdFiles.push(
-        path.join(exports.depDir, 'cobble/**/**.js'),
-        path.join(exports.depDir, 'painter/**/**.js'),
-        path.join(exports.depDir, 'TextClipboard/**/**.js'),
-        path.join(exports.depDir, 'zlib/**/**.js')
+//        path.join(exports.depDir, 'cobble/**/**.js'),
+//        path.join(exports.depDir, 'painter/**/**.js'),
+//        path.join(exports.depDir, 'TextClipboard/**/**.js'),
+//        path.join(exports.depDir, 'zlib/**/**.js')
 
 //        path.join(exports.depDir, 'moment/**/**.js'),
 //        path.join(exports.depDir, 'imageCrop/**/**.js'),
@@ -493,6 +493,17 @@ exports.replaceRequireConfig = function (data) {
 };
 
 
+exports.appendFileHash = function (filePath, hash) {
+
+    var extName = path.extname(filePath);
+
+    return path.join(
+        path.dirname(filePath),
+        path.basename(filePath, extName) + '_' + hash + extName
+    );
+
+};
+
 exports.resourceProcessor = (function () {
 
     var errorFilePattern = /[$ {}]/;
@@ -536,18 +547,6 @@ exports.resourceProcessor = (function () {
              : srcAmdConfig;
     };
 
-    var appendHash = function (filePath, hash) {
-
-        var extName = path.extname(filePath);
-
-        return path.join(
-            path.dirname(filePath),
-            path.basename(filePath, extName) + '_' + hash + extName
-        );
-
-    };
-
-
     var instance = new Resource({
         getAmdConfig: getAmdConfig,
         renameFile: function (file, hash) {
@@ -555,7 +554,7 @@ exports.resourceProcessor = (function () {
             var filePath = file.path;
 
             if (hash) {
-                filePath = appendHash(filePath, hash);
+                filePath = exports.appendFileHash(filePath, hash);
             }
 
             return exports.replaceResource(filePath);
@@ -566,7 +565,7 @@ exports.resourceProcessor = (function () {
             var filePath = dependency.raw;
 
             if (hash) {
-                filePath = appendHash(filePath, hash);
+                filePath = exports.appendFileHash(filePath, hash);
             }
 
             return exports.replaceResource(filePath);
