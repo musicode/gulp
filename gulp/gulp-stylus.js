@@ -22,6 +22,9 @@ gulp.task('stylus', function () {
     return gulp.src(
         config.stylusFiles
     )
+    .pipe(
+        config.filter()
+    )
     .pipe(compileHandler)
     .pipe(
         gulp.dest(config.dest)

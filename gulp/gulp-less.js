@@ -17,6 +17,9 @@ gulp.task('less', function () {
     return gulp.src(
         config.lessFiles
     )
+    .pipe(
+        config.filter()
+    )
     .pipe(compileHandler)
     .pipe(
         gulp.dest(config.dest)

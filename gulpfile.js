@@ -19,6 +19,43 @@ require('./gulp/gulp-other');
 require('./gulp/gulp-version');
 
 
+gulp.task(
+    'env-source',
+    function () {
+        config.release = false;
+    }
+);
+
+gulp.task(
+    'env-min',
+    function () {
+        config.release = true;
+    }
+);
+
+gulp.task(
+    'source',
+    sequence(
+        'env-source',
+        'clean',
+        'html',
+        ['amd', 'js', 'less', 'stylus', 'css', 'image', 'other'],
+        'version',
+        'css-source'
+    )
+);
+
+gulp.task(
+    'min',
+    sequence(
+        'env-min',
+        'clean',
+        'html',
+        ['amd', 'js', 'less', 'stylus', 'css', 'image', 'other'],
+        'version',
+        ['css-min', 'js-min']
+    )
+);
 
 gulp.task(
     'end',
@@ -44,28 +81,6 @@ gulp.task(
         callback();
 
     }
-);
-
-gulp.task(
-    'source',
-    sequence(
-        'clean',
-        'html',
-        ['amd', 'js', 'less', 'stylus', 'css', 'image', 'other'],
-        'css-source',
-        'version'
-    )
-);
-
-gulp.task(
-    'min',
-    sequence(
-        'clean',
-        'html',
-        ['amd', 'js', 'less', 'stylus', 'css', 'image', 'other'],
-        'version',
-        ['css-min', 'js-min']
-    )
 );
 
 gulp.task('test', ['source']);

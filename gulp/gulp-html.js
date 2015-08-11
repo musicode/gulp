@@ -16,6 +16,9 @@ gulp.task('html', function (callback) {
         config.htmlFiles
     )
     .pipe(
+        config.filter()
+    )
+    .pipe(
         config.resourceProcessor.htmlDependencies({
 
             process: function (file, dependencies) {
@@ -49,7 +52,6 @@ gulp.task('html', function (callback) {
                     }
 
                     if (files
-                        && !config.filter(absolute)
                         && files.indexOf(absolute) < 0
                     ) {
                         files.push(absolute);

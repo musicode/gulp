@@ -32,6 +32,9 @@ gulp.task('css', function () {
         config.cssFiles
     )
     .pipe(
+        config.filter()
+    )
+    .pipe(
         gulp.dest(config.dest)
     );
 

@@ -15,6 +15,9 @@ gulp.task('image', function () {
     var stream = gulp.src(
         config.imageFiles
     )
+    .pipe(
+        config.filter()
+    );
 
     // 挺耗时的
     if (config.release) {

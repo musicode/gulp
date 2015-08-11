@@ -15,6 +15,9 @@ gulp.task('js', function () {
         config.jsFiles
     )
     .pipe(
+        config.filter()
+    )
+    .pipe(
         gulp.dest(config.dest)
     );
 

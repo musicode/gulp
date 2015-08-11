@@ -7,13 +7,14 @@ var fs = require('fs');
 var path = require('path');
 var gulp = require('gulp');
 
+var ignore = require('gulp-ignore');
+
 var Resource = require('gulp-resource');
 
 var argv = require('yargs').argv;
 
 // 命令行参数
 var buildDep = argv.dep;
-var release = argv.release;
 
 
 // 项目下的所有 src 目录都会转成 asset，不限于 project/src
@@ -103,7 +104,7 @@ exports.buildDep = exports.separateBuild
  *
  * @type {boolean}
  */
-exports.release = release;
+exports.release = true;
 
 /**
  * 需要 build 的 html 文件
@@ -256,38 +257,35 @@ exports.otherFiles = [
 
 ];
 
+var otherFiles = [
+    '**/*.html',
+    '**/*.swf',
+    '**/*.txt',
+    '**/*.flv',
+    '**/*.mp4',
+    '**/*.mp3',
+    '**/*.pdf',
+    '**/*.json',
+    '**/*.eot',
+    '**/*.svg',
+    '**/*.ttf',
+    '**/*.woff'
+];
+
 if (exports.buildSrc) {
-    exports.otherFiles.push(
-        path.join(exports.srcDir, '**/*.html'),
-        path.join(exports.srcDir, '**/*.swf'),
-        path.join(exports.srcDir, '**/*.txt'),
-        path.join(exports.srcDir, '**/*.flv'),
-        path.join(exports.srcDir, '**/*.mp4'),
-        path.join(exports.srcDir, '**/*.mp3'),
-        path.join(exports.srcDir, '**/*.pdf'),
-        path.join(exports.srcDir, '**/*.json'),
-        path.join(exports.srcDir, '**/*.eot'),
-        path.join(exports.srcDir, '**/*.svg'),
-        path.join(exports.srcDir, '**/*.ttf'),
-        path.join(exports.srcDir, '**/*.woff')
-    );
+    otherFiles.forEach(function (file) {
+        exports.otherFiles.push(
+            path.join(exports.srcDir, file)
+        );
+    });
 }
 
 if (exports.buildDep) {
-    exports.otherFiles.push(
-        path.join(exports.depDir, '**/*.html'),
-        path.join(exports.depDir, '**/*.swf'),
-        path.join(exports.depDir, '**/*.txt'),
-        path.join(exports.depDir, '**/*.flv'),
-        path.join(exports.depDir, '**/*.mp4'),
-        path.join(exports.depDir, '**/*.mp3'),
-        path.join(exports.depDir, '**/*.pdf'),
-        path.join(exports.depDir, '**/*.json'),
-        path.join(exports.depDir, '**/*.eot'),
-        path.join(exports.depDir, '**/*.svg'),
-        path.join(exports.depDir, '**/*.ttf'),
-        path.join(exports.depDir, '**/*.woff')
-    );
+    otherFiles.forEach(function (file) {
+        exports.otherFiles.push(
+            path.join(exports.depDir, file)
+        );
+    });
 }
 
 
@@ -296,30 +294,18 @@ function inDirectory(dir, file) {
 }
 
 /**
- * 文件是否需要 build，返回 true 表示需要过滤掉
+ * 文件是否需要 build
  *
- * @param {string} filePath
- * @return {boolean}
+ * @return {boolean|Array|Function}
  */
-exports.filter = function (filePath) {
+exports.filter = function () {
 
-    if (exports.separateBuild) {
+    // 具体参考 https://github.com/robrich/gulp-match
+    // gulpmatch(file, 这个参数)
 
-        if (exports.buildSrc) {
-            if (inDirectory(exports.depDir, filePath)) {
-                return true;
-            }
-        }
-
-        if (exports.buildDep) {
-            if (inDirectory(exports.srcDir, filePath)) {
-                return true;
-            }
-        }
-
-    }
-
-    return false;
+    return ignore.exclude([
+        '**/test/**/*.js'
+    ]);
 
 };
 
@@ -491,6 +477,12 @@ exports.resourceProcessor = (function () {
         ]
     };
 
+    var depAmdConfig = {
+        baseUrl: exports.srcDir,
+        paths: amdConfig.paths,
+        packages: amdConfig.packages
+    };
+
     var srcAmdConfig = {
         baseUrl: exports.srcDir,
         paths: amdConfig.paths,
@@ -538,9 +530,17 @@ exports.resourceProcessor = (function () {
     assetAmdConfig.combine = { };
 
     var getAmdConfig = function (filePath) {
-        return inDirectory(exports.outputDir, filePath)
-             ? assetAmdConfig
-             : srcAmdConfig;
+
+        if (inDirectory(exports.outputDir, filePath)) {
+            return assetAmdConfig;
+        }
+
+        if (inDirectory(exports.depDir, filePath)) {
+            return depAmdConfig;
+        }
+
+        return srcAmdConfig;
+
     };
 
     var instance = new Resource({

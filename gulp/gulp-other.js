@@ -13,6 +13,9 @@ gulp.task('other', function () {
         config.otherFiles
     )
     .pipe(
+        config.filter()
+    )
+    .pipe(
         gulp.dest(config.dest)
     );
 

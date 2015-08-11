@@ -6,6 +6,7 @@
 var path = require('path');
 
 var gulp = require('gulp');
+
 var config = require('./gulp-config');
 
 var resourceProcessor = config.resourceProcessor;
@@ -14,6 +15,9 @@ gulp.task('amd', function () {
 
     return gulp.src(
         config.amdFiles
+    )
+    .pipe(
+        config.filter()
     )
     .pipe(
         resourceProcessor.buildAmdModules()
