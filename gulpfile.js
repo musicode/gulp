@@ -26,9 +26,9 @@ gulp.task(
 
         var writeFile = function (name, json) {
 
-            fs.writeFile(
+            config.writeJSON(
                 path.join(config.outputDir, name),
-                JSON.stringify(json, null, 4)
+                json
             );
 
         };

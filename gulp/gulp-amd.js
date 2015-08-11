@@ -12,8 +12,6 @@ var resourceProcessor = config.resourceProcessor;
 
 gulp.task('amd', function () {
 
-    var amdConfig = config.amd;
-
     return gulp.src(
         config.amdFiles
     )

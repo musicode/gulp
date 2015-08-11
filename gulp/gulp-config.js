@@ -3,6 +3,7 @@
  * @author musicode
  */
 
+var fs = require('fs');
 var path = require('path');
 var gulp = require('gulp');
 
@@ -203,10 +204,10 @@ if (exports.buildSrc) {
 
 if (exports.buildDep) {
     exports.amdFiles.push(
-//        path.join(exports.depDir, 'cobble/**/**.js'),
-//        path.join(exports.depDir, 'painter/**/**.js'),
-//        path.join(exports.depDir, 'TextClipboard/**/**.js'),
-//        path.join(exports.depDir, 'zlib/**/**.js')
+       path.join(exports.depDir, 'cobble/**/**.js'),
+       path.join(exports.depDir, 'painter/**/**.js'),
+       path.join(exports.depDir, 'TextClipboard/**/**.js'),
+       path.join(exports.depDir, 'zlib/**/**.js')
 
 //        path.join(exports.depDir, 'moment/**/**.js'),
 //        path.join(exports.depDir, 'imageCrop/**/**.js'),
@@ -288,83 +289,6 @@ if (exports.buildDep) {
         path.join(exports.depDir, '**/*.woff')
     );
 }
-
-/**
- * amd loader 配置
- *
- * @type {Object}
- */
-exports.amd = {
-    paths: { },
-    packages: [
-        {
-            name: 'cobble',
-            location: '../dep/cobble/0.3.13/src'
-        },
-        {
-            name: 'painter',
-            location: '../dep/painter/0.0.1/src'
-        },
-        {
-            name: 'zlib',
-            location: '../dep/zlib/0.0.1/src'
-        },
-        {
-            name: 'TextClipboard',
-            location: '../dep/TextClipboard/0.0.3/src',
-            main: 'TextClipboard'
-        }
-    ]
-};
-
-/**
- * amd 打包策略
- *
- * 格式如下
- *
- * {
- *    // 全局要合并的模块
- *    include: [
- *        'modudle'
- *    ],
- *    // 全局不合并的模块
- *    exclude: [
- *        'module'
- *    ],
- *    // 模块默认按自己的依赖进行合并
- *    // 只有配置成 false 才表示不需要合并
- *    // 每个模块还可以配置 include 和 exclude，优先级比全局 include exclude 更高
- *    modules: {
- *        module: {
- *            include: [ ],
- *            exclude: [ ]
- *        }
- *    }
- * }
- *
- * @type {Array}
- */
-exports.amdCombine = {
-    exclude: [
-        'jquery',
-        'echarts',
-        'echarts/**/*'
-    ]
-};
-
-//if (exports.buildSrc) {
-//
-//    exports.amdCombine.exclude.push(
-//        'cobble',
-//        'cobble/**/*',
-//        'moment',
-//        'imageCrop',
-//        'audioPlayer',
-//        'underscore',
-//        'TextClipboard'
-//    );
-//
-//}
 
 
 function inDirectory(dir, file) {
@@ -492,7 +416,13 @@ exports.replaceRequireConfig = function (data) {
 
 };
 
-
+/**
+ * 改写文件名，添加 hash 后缀
+ *
+ * @param {string} filePath
+ * @param {string} hash
+ * @return {string}
+ */
 exports.appendFileHash = function (filePath, hash) {
 
     var extName = path.extname(filePath);
@@ -504,17 +434,82 @@ exports.appendFileHash = function (filePath, hash) {
 
 };
 
+/**
+ * 静态资源处理器
+ */
 exports.resourceProcessor = (function () {
 
+    // 错误的文件路径
     var errorFilePattern = /[$ {}]/;
 
-    var amdConfig = exports.amd;
+    /*
+     * amd 打包策略
+     *
+     * 格式如下
+     *
+     * {
+     *    // 全局要合并的模块
+     *    include: [
+     *        'modudle'
+     *    ],
+     *    // 全局不合并的模块
+     *    exclude: [
+     *        'module'
+     *    ],
+     *    // 模块默认按自己的依赖进行合并
+     *    // 只有配置成 false 才表示不需要合并
+     *    // 每个模块还可以配置 include 和 exclude，优先级比全局 include exclude 更高
+     *    modules: {
+     *        module: {
+     *            include: [ ],
+     *            exclude: [ ]
+     *        }
+     *    }
+     * }
+     */
+
+    var amdConfig = {
+        paths: { },
+        packages: [
+            {
+                name: 'cobble',
+                location: '../dep/cobble/0.3.13/src'
+            },
+            {
+                name: 'painter',
+                location: '../dep/painter/0.0.1/src'
+            },
+            {
+                name: 'zlib',
+                location: '../dep/zlib/0.0.1/src'
+            },
+            {
+                name: 'TextClipboard',
+                location: '../dep/TextClipboard/0.0.3/src',
+                main: 'TextClipboard'
+            }
+        ]
+    };
 
     var srcAmdConfig = {
         baseUrl: exports.srcDir,
         paths: amdConfig.paths,
         packages: amdConfig.packages,
-        combine: exports.amdCombine,
+        combine: {
+
+            exclude: [
+                'echarts',
+                'echarts/**/*',
+                'cobble',
+                'cobble/**/*',
+                'moment',
+                'imageCrop',
+                'audioPlayer',
+                'underscore',
+                'TextClipboard'
+            ]
+
+        },
         replaceRequireResource: function (raw, absolute) {
 
             // 把 less stylus 改成 css
@@ -540,6 +535,7 @@ exports.resourceProcessor = (function () {
 
     var assetAmdConfig = exports.replaceRequireConfig(srcAmdConfig);
     assetAmdConfig.baseUrl = path.join(exports.outputDir, exports.assetName);
+    assetAmdConfig.combine = { };
 
     var getAmdConfig = function (filePath) {
         return inDirectory(exports.outputDir, filePath)
@@ -649,6 +645,7 @@ exports.resourceProcessor = (function () {
                 }
             },
             {
+                // 自定义替换格式
                 pattern: /['"]{{ \$static_origin }}\/src\/[^'"]+['"]/g,
                 match: function (result) {
                     var terms = result.split(/['"]/);
@@ -663,6 +660,19 @@ exports.resourceProcessor = (function () {
     return instance;
 
 })();
+
+/**
+ * 持久化 json 数据
+ *
+ * @param {string} file
+ * @param {Object|Array} json
+ */
+exports.writeJSON = function (file, json) {
+    fs.writeFile(
+        file,
+        JSON.stringify(json, null, 4)
+    );
+};
 
 /**
  * 根据相对路径输出文件，返回是目录路径，表示文件要输出到此目录下

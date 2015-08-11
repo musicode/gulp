@@ -21,7 +21,6 @@
  */
 
 
-var fs = require('fs');
 var path = require('path');
 
 var gulp = require('gulp');
@@ -69,20 +68,6 @@ function relativeProjectFile(file) {
     return path.relative(config.projectDir, file);
 }
 
-/**
- * 持久化 json 数据
- *
- * @inner
- * @param {string} file
- * @param {Object|Array} json
- */
-function writeJSON(file, json) {
-    fs.writeFile(
-        file,
-        JSON.stringify(json, null, 4)
-    );
-}
-
 
 // 扫描 assetDir，建立全量静态资源哈希表
 gulp.task('create-hash-map', function () {
@@ -120,6 +105,60 @@ gulp.task('create-css-dependency-map', function () {
     );
 });
 
+// 生成带有 hash 后缀的静态资源文件
+gulp.task('create-hash-file', function () {
+    return gulp.src(
+        path.join(assetDir, '**/*.*')
+    )
+    .pipe(
+        resourceProcessor.renameFiles()
+    )
+    .pipe(
+        gulp.dest(config.dest)
+    );
+});
+
+// 生成 hash 文件后，静态资源目录至少有两个版本
+// 如 a.js 和 a_sdfs.js，这时要挑出哈希后的文件做引用替换
+var hashAmdFiles = [ ];
+var hashCssFiles = [ ];
+
+gulp.task('pick-hash-amd-file', function () {
+    return gulp.src(
+        toAssetFiles(config.amdFiles)
+    )
+    .pipe(
+        resourceProcessor.custom(function (file, callback) {
+
+            var hashFilePath = resourceProcessor.getHashFilePath(file);
+            if (hashFilePath) {
+                hashAmdFiles.push(hashFilePath);
+            }
+
+            callback();
+
+        })
+    );
+});
+
+gulp.task('pick-hash-css-file', function () {
+    return gulp.src(
+        path.join(assetDir, '**/*.css')
+    )
+    .pipe(
+        resourceProcessor.custom(function (file, callback) {
+
+            var hashFilePath = resourceProcessor.getHashFilePath(file);
+            if (hashFilePath) {
+                hashCssFiles.push(hashFilePath);
+            }
+
+            callback();
+
+        })
+    );
+});
+
 // 替换 html 中的引用
 gulp.task('replace-html-dependency', function () {
     return gulp.src(
@@ -128,7 +167,7 @@ gulp.task('replace-html-dependency', function () {
     .pipe(
         resourceProcessor.replaceFileDependencies({
             type: 'html',
-            customReplace: function (content, filePath) {
+            customReplace: function (content) {
 
                 var list = resourceProcessor.parseAmdConfig(content);
 
@@ -180,9 +219,12 @@ gulp.task('replace-html-dependency', function () {
     );
 });
 
+
+
+
 gulp.task('replace-amd-dependency', function () {
     return gulp.src(
-        toAssetFiles(config.amdFiles)
+        hashAmdFiles
     )
     .pipe(
         resourceProcessor.replaceFileDependencies({
@@ -196,7 +238,7 @@ gulp.task('replace-amd-dependency', function () {
 
 gulp.task('replace-css-dependency', function () {
     return gulp.src(
-        path.join(assetDir, '**/*.css')
+        hashCssFiles
     )
     .pipe(
         resourceProcessor.replaceFileDependencies({
@@ -208,29 +250,29 @@ gulp.task('replace-css-dependency', function () {
     );
 });
 
-gulp.task('create-hashed-file', function () {
-    return gulp.src(
-        path.join(assetDir, '**/*.*')
-    )
-    .pipe(
-        resourceProcessor.renameFiles()
-    )
-    .pipe(
-        gulp.dest(config.dest)
-    );
-});
-
 // 上面这些 task 必须按下面的顺序执行
 gulp.task(
     'version-batch',
     sequence(
         'create-hash-map',
-        ['create-amd-dependency-map', 'create-css-dependency-map'],
-        ['replace-html-dependency', 'replace-amd-dependency', 'replace-css-dependency'],
-        'create-hashed-file'
+        [
+            'create-amd-dependency-map',
+            'create-css-dependency-map'
+        ],
+        'create-hash-file',
+        [
+            'pick-hash-amd-file',
+            'pick-hash-css-file'
+        ],
+        [
+            'replace-html-dependency',
+            'replace-amd-dependency',
+            'replace-css-dependency'
+        ]
     )
 );
 
+// 外部使用这个 task
 gulp.task(
     'version',
     ['version-batch'],
@@ -248,7 +290,7 @@ gulp.task(
             data[ relativeProjectFile(key) ] = hashMap[ key ];
         }
 
-        writeJSON(config.hashMapFile, data);
+        config.writeJSON(config.hashMapFile, data);
 
 
         data = { };
@@ -261,7 +303,7 @@ gulp.task(
             );
         }
 
-        writeJSON(config.dependencyMapFile, data);
+        config.writeJSON(config.dependencyMapFile, data);
 
         callback();
 
