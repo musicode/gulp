@@ -51,8 +51,7 @@ gulp.task(
         'clean',
         'html',
         ['amd', 'js', 'less', 'stylus', 'css', 'image', 'other'],
-        'version',
-        ['css-min', 'js-min']
+        'version'
     )
 );
 

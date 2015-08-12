@@ -302,7 +302,9 @@ exports.filter = function () {
     // gulpmatch(file, 这个参数)
 
     return ignore.exclude([
-        '**/test/**/*'
+        '**/test/**/*',
+        '**/demo/**/*',
+        'edp-*'
     ]);
 
 };

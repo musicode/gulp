@@ -11,7 +11,7 @@ var tool = require('./tool');
 
 gulp.task('amd', function () {
 
-    return gulp.src(
+    var stream = gulp.src(
         config.amdFiles
     )
     .pipe(
@@ -19,8 +19,15 @@ gulp.task('amd', function () {
     )
     .pipe(
         tool.buildAmdModules()
-    )
-    .pipe(
+    );
+
+    if (config.release) {
+        stream = stream.pipe(
+            tool.minifyJs()
+        );
+    }
+
+    return stream.pipe(
         gulp.dest(config.dest)
     );
 

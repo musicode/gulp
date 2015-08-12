@@ -12,28 +12,20 @@ var tool = require('./tool');
 
 gulp.task('js', function () {
 
-    return gulp.src(
+    var stream = gulp.src(
         config.jsFiles
     )
     .pipe(
         config.filter()
-    )
-    .pipe(
-        gulp.dest(config.dest)
     );
 
-});
+    if (config.release) {
+        stream = stream.pipe(
+            tool.minifyJs()
+        );
+    }
 
-
-gulp.task('js-min', function () {
-
-    return gulp.src(
-        path.join(config.outputDir, '**/*.js')
-    )
-    .pipe(
-        tool.minifyJs()
-    )
-    .pipe(
+    return stream.pipe(
         gulp.dest(config.dest)
     );
 

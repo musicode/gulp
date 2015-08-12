@@ -10,7 +10,7 @@ var tool = require('./tool');
 
 gulp.task('less', function () {
 
-    return gulp.src(
+    var stream = gulp.src(
         config.lessFiles
     )
     .pipe(
@@ -21,8 +21,15 @@ gulp.task('less', function () {
     )
     .pipe(
         tool.autoPrefixer()
-    )
-    .pipe(
+    );
+
+    if (config.release) {
+        stream = stream.pipe(
+            tool.minifyCss()
+        );
+    }
+
+    return stream.pipe(
         gulp.dest(config.dest)
     );
 

@@ -1,5 +1,5 @@
 /**
- * @file 兼容厂商前缀，压缩
+ * @file 处理 css
  * @author musicode
  */
 
@@ -12,26 +12,23 @@ var tool = require('./tool');
 
 gulp.task('css', function () {
 
-    return gulp.src(
+    var stream = gulp.src(
         config.cssFiles
     )
     .pipe(
         config.filter()
     )
     .pipe(
-        gulp.dest(config.dest)
+        tool.autoPrefixer()
     );
 
-});
+    if (config.release) {
+        stream = stream.pipe(
+            tool.minifyCss()
+        );
+    }
 
-gulp.task('css-min', function () {
-
-    return gulp.src(
-        path.join(config.outputDir, '**/*.css')
-    )
-    .pipe(tool.autoPrefixer())
-    .pipe(tool.minifyCss())
-    .pipe(
+    return stream.pipe(
         gulp.dest(config.dest)
     );
 

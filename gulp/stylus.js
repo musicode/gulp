@@ -10,8 +10,8 @@ var tool = require('./tool');
 
 gulp.task('stylus', function () {
 
-    return gulp.src(
-        config.stylusFiles
+    var stream = gulp.src(
+        config.lessFiles
     )
     .pipe(
         config.filter()
@@ -21,8 +21,15 @@ gulp.task('stylus', function () {
     )
     .pipe(
         tool.autoPrefixer()
-    )
-    .pipe(
+    );
+
+    if (config.release) {
+        stream = stream.pipe(
+            tool.minifyCss()
+        );
+    }
+
+    return stream.pipe(
         gulp.dest(config.dest)
     );
 
