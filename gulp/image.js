@@ -6,9 +6,9 @@
 var path = require('path');
 
 var gulp = require('gulp');
-var imagemin = require('gulp-imagemin');
 
-var config = require('./gulp-config');
+var config = require('./config');
+var tool = require('./tool');
 
 gulp.task('image', function () {
 
@@ -22,11 +22,7 @@ gulp.task('image', function () {
     // 挺耗时的
     if (config.release) {
         stream = stream.pipe(
-            imagemin({
-                optimizationLevel: 3,
-                progressive: true,
-                interlaced: true
-            })
+            tool.minifyImage()
         );
     }
 

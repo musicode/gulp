@@ -3,7 +3,6 @@
  * @author musicode
  */
 
-var fs = require('fs');
 var path = require('path');
 var gulp = require('gulp');
 
@@ -491,8 +490,9 @@ exports.resourceProcessor = (function () {
             exclude: [
                 'echarts',
                 'echarts/**/*',
-                'cobble',
-                'cobble/**/*',
+                // 'cobble',
+                // 'cobble/**/*',
+                'zlib',
                 'moment',
                 'imageCrop',
                 'audioPlayer',
@@ -663,19 +663,6 @@ exports.resourceProcessor = (function () {
     return instance;
 
 })();
-
-/**
- * 持久化 json 数据
- *
- * @param {string} file
- * @param {Object|Array} json
- */
-exports.writeJSON = function (file, json) {
-    fs.writeFile(
-        file,
-        JSON.stringify(json, null, 4)
-    );
-};
 
 /**
  * 根据相对路径输出文件，返回是目录路径，表示文件要输出到此目录下

@@ -6,8 +6,9 @@
 var path = require('path');
 
 var gulp = require('gulp');
-var config = require('./gulp-config');
 
+var config = require('./config');
+var tool = require('./tool');
 
 gulp.task('js', function () {
 
@@ -24,26 +25,14 @@ gulp.task('js', function () {
 });
 
 
-
-var uglify = require('gulp-uglify');
-
-var minifyHandler = uglify({
-    compress: {
-        warnings: false,
-        // see https://github.com/ecomfe/edp/issues/230
-        conditionals: false
-    },
-    mangle: {
-        except: ['require', 'exports', 'module']
-    }
-});
-
 gulp.task('js-min', function () {
 
     return gulp.src(
         path.join(config.outputDir, '**/*.js')
     )
-    .pipe(minifyHandler)
+    .pipe(
+        tool.minifyJs()
+    )
     .pipe(
         gulp.dest(config.dest)
     );

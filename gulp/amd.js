@@ -3,13 +3,11 @@
  * @author musicode
  */
 
-var path = require('path');
-
 var gulp = require('gulp');
 
-var config = require('./gulp-config');
+var config = require('./config');
+var tool = require('./tool');
 
-var resourceProcessor = config.resourceProcessor;
 
 gulp.task('amd', function () {
 
@@ -20,7 +18,7 @@ gulp.task('amd', function () {
         config.filter()
     )
     .pipe(
-        resourceProcessor.buildAmdModules()
+        tool.buildAmdModules()
     )
     .pipe(
         gulp.dest(config.dest)

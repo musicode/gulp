@@ -24,9 +24,13 @@
 var path = require('path');
 
 var gulp = require('gulp');
-var config = require('./gulp-config');
 
 var sequence = require('gulp-sequence');
+
+var config = require('./config');
+var tool = require('./tool');
+
+
 
 var resourceProcessor = config.resourceProcessor;
 
@@ -290,7 +294,7 @@ gulp.task(
             data[ relativeProjectFile(key) ] = hashMap[ key ];
         }
 
-        config.writeJSON(config.hashMapFile, data);
+        tool.writeJSON(config.hashMapFile, data);
 
 
         data = { };
@@ -303,7 +307,7 @@ gulp.task(
             );
         }
 
-        config.writeJSON(config.dependencyMapFile, data);
+        tool.writeJSON(config.dependencyMapFile, data);
 
         callback();
 

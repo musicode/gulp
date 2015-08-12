@@ -1,22 +1,22 @@
 
-var fs = require('fs');
 var path = require('path');
 
 var gulp = require('gulp');
 var sequence = require('gulp-sequence');
 
-var config = require('./gulp/gulp-config');
+var config = require('./gulp/config');
+var tool = require('./gulp/tool');
 
-require('./gulp/gulp-clean');
-require('./gulp/gulp-html');
-require('./gulp/gulp-amd');
-require('./gulp/gulp-js');
-require('./gulp/gulp-less');
-require('./gulp/gulp-stylus');
-require('./gulp/gulp-css');
-require('./gulp/gulp-image');
-require('./gulp/gulp-other');
-require('./gulp/gulp-version');
+require('./gulp/clean');
+require('./gulp/html');
+require('./gulp/amd');
+require('./gulp/js');
+require('./gulp/less');
+require('./gulp/stylus');
+require('./gulp/css');
+require('./gulp/image');
+require('./gulp/other');
+require('./gulp/version');
 
 
 gulp.task(
@@ -40,8 +40,7 @@ gulp.task(
         'clean',
         'html',
         ['amd', 'js', 'less', 'stylus', 'css', 'image', 'other'],
-        'version',
-        'css-source'
+        'version'
     )
 );
 
@@ -63,7 +62,7 @@ gulp.task(
 
         var writeFile = function (name, json) {
 
-            config.writeJSON(
+            tool.writeJSON(
                 path.join(config.outputDir, name),
                 json
             );

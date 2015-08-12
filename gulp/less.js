@@ -4,13 +4,9 @@
  */
 
 var gulp = require('gulp');
-var config = require('./gulp-config');
 
-var less = require('gulp-less');
-
-var compileHandler = less({
-    relativeUrls: true
-});
+var config = require('./config');
+var tool = require('./tool');
 
 gulp.task('less', function () {
 
@@ -20,7 +16,12 @@ gulp.task('less', function () {
     .pipe(
         config.filter()
     )
-    .pipe(compileHandler)
+    .pipe(
+        tool.compileLess()
+    )
+    .pipe(
+        tool.autoPrefixer()
+    )
     .pipe(
         gulp.dest(config.dest)
     );

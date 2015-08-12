@@ -8,7 +8,7 @@ var path = require('path');
 var gulp = require('gulp');
 var frep = require('gulp-frep');
 
-var config = require('./gulp-config');
+var config = require('./config');
 
 gulp.task('html', function (callback) {
 

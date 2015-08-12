@@ -5,7 +5,7 @@
 
 var gulp = require('gulp');
 
-var config = require('./gulp-config');
+var config = require('./config');
 
 gulp.task('other', function () {
 
