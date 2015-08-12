@@ -226,26 +226,29 @@ exports.imageFiles = [
 
 ];
 
+var imageFiles = [
+    '**/*.jpg',
+    '**/*.jpeg',
+    '**/*.png',
+    '**/*.gif',
+    '**/*.cur',
+    '**/*.ico'
+];
+
 if (exports.buildSrc) {
-    exports.imageFiles.push(
-        path.join(exports.srcDir, '**/*.jpg'),
-        path.join(exports.srcDir, '**/*.jpeg'),
-        path.join(exports.srcDir, '**/*.png'),
-        path.join(exports.srcDir, '**/*.gif'),
-        path.join(exports.srcDir, '**/*.cur'),
-        path.join(exports.srcDir, '**/*.ico')
-    );
+    imageFiles.forEach(function (file) {
+        exports.imageFiles.push(
+            path.join(exports.srcDir, file)
+        );
+    });
 }
 
 if (exports.buildDep) {
-    exports.imageFiles.push(
-        path.join(exports.depDir, '**/*.jpg'),
-        path.join(exports.depDir, '**/*.jpeg'),
-        path.join(exports.depDir, '**/*.png'),
-        path.join(exports.depDir, '**/*.gif'),
-        path.join(exports.depDir, '**/*.cur'),
-        path.join(exports.depDir, '**/*.ico')
-    );
+    imageFiles.forEach(function (file) {
+        exports.imageFiles.push(
+            path.join(exports.depDir, file)
+        );
+    });
 }
 
 /**
@@ -289,10 +292,6 @@ if (exports.buildDep) {
 }
 
 
-function inDirectory(dir, file) {
-    return path.relative(dir, file).indexOf('..') < 0;
-}
-
 /**
  * 文件是否需要 build
  *
@@ -304,7 +303,7 @@ exports.filter = function () {
     // gulpmatch(file, 这个参数)
 
     return ignore.exclude([
-        '**/test/**/*.js'
+        '**/test/**/*'
     ]);
 
 };
@@ -528,6 +527,10 @@ exports.resourceProcessor = (function () {
     var assetAmdConfig = exports.replaceRequireConfig(srcAmdConfig);
     assetAmdConfig.baseUrl = path.join(exports.outputDir, exports.assetName);
     assetAmdConfig.combine = { };
+
+    var inDirectory = function (dir, file) {
+        return path.relative(dir, file).indexOf('..') < 0;
+    };
 
     var getAmdConfig = function (filePath) {
 

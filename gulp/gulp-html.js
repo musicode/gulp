@@ -19,6 +19,16 @@ gulp.task('html', function (callback) {
         config.filter()
     )
     .pipe(
+        frep([
+            {
+                pattern: /{edp-variable:{version}}/g,
+                replacement: function (match) {
+                    return Date.now();
+                }
+            }
+        ])
+    )
+    .pipe(
         config.resourceProcessor.htmlDependencies({
 
             process: function (file, dependencies) {
