@@ -11,7 +11,7 @@ var tool = require('./tool');
 gulp.task('stylus', function () {
 
     var stream = gulp.src(
-        config.lessFiles
+        config.stylusFiles
     )
     .pipe(
         config.filter()
