@@ -61,20 +61,10 @@ function toAssetFiles(files) {
 
 }
 
-/**
- * 相对 projectDir 才方便项目转移
- *
- * @inner
- * @param {string} file
- * @return {string}
- */
-function relativeProjectFile(file) {
-    return path.relative(config.projectDir, file);
-}
 
 
 // 扫描 assetDir，建立全量静态资源哈希表
-gulp.task('create-hash-map', function () {
+gulp.task('version-create-hash-map', function () {
 
     return gulp.src(
         path.join(assetDir, '**/*.*')
@@ -85,41 +75,19 @@ gulp.task('create-hash-map', function () {
 
 });
 
-// 扫描 assetDir，建立 amd 模块依赖表
-gulp.task('create-amd-dependency-map', function () {
-    return gulp.src(
-        toAssetFiles(config.amdFiles)
-    )
-    .pipe(
-        resourceProcessor.analyzeFileDependencies({
-            type: 'amd'
-        })
-    );
-});
+// 扫描 assetDir，建立全量静态资源依赖表
+gulp.task('version-create-dependency-map', function () {
 
-// 扫描 assetDir，建立 css 依赖表
-gulp.task('create-css-dependency-map', function () {
     return gulp.src(
-        path.join(assetDir, '**/*.css')
+        tool.mergeArray(
+            path.join(assetDir, '**/*.css'),
+            toAssetFiles(config.amdFiles)
+        )
     )
     .pipe(
-        resourceProcessor.analyzeFileDependencies({
-            type: 'css'
-        })
+        resourceProcessor.analyzeFileDependencies()
     );
-});
 
-// 生成带有 hash 后缀的静态资源文件
-gulp.task('create-hash-file', function () {
-    return gulp.src(
-        path.join(assetDir, '**/*.*')
-    )
-    .pipe(
-        resourceProcessor.renameFiles()
-    )
-    .pipe(
-        gulp.dest(config.dest)
-    );
 });
 
 // 生成 hash 文件后，静态资源目录至少有两个版本
@@ -127,51 +95,68 @@ gulp.task('create-hash-file', function () {
 var hashAmdFiles = [ ];
 var hashCssFiles = [ ];
 
-gulp.task('pick-hash-amd-file', function () {
+// 生成带有 hash 后缀的静态资源文件
+gulp.task('version-create-hash-file', function () {
+
+    var assetAmdFiles = toAssetFiles(config.amdFiles);
+
     return gulp.src(
-        toAssetFiles(config.amdFiles)
+        path.join(assetDir, '**/*.*')
     )
     .pipe(
-        resourceProcessor.custom(function (file, callback) {
+        resourceProcessor.custom(
+            function (file, callback) {
 
-            var hashFilePath = resourceProcessor.getHashFilePath(file);
-            if (hashFilePath) {
-                hashAmdFiles.push(hashFilePath);
+                var hashFilePath = resourceProcessor.getHashFilePath(file);
+
+                if (hashFilePath) {
+                    switch (path.extname(hashFilePath).toLowerCase()) {
+
+                        case '.js':
+                            if (tool.inFiles(file.path, assetAmdFiles)) {
+                                hashAmdFiles.push(hashFilePath);
+                            }
+                            break;
+
+                        case '.css':
+                            hashCssFiles.push(hashFilePath);
+                            break;
+
+                    }
+                }
+
+                callback();
+
             }
-
-            callback();
-
-        })
-    );
-});
-
-gulp.task('pick-hash-css-file', function () {
-    return gulp.src(
-        path.join(assetDir, '**/*.css')
+        )
     )
     .pipe(
-        resourceProcessor.custom(function (file, callback) {
-
-            var hashFilePath = resourceProcessor.getHashFilePath(file);
-            if (hashFilePath) {
-                hashCssFiles.push(hashFilePath);
-            }
-
-            callback();
-
-        })
+        resourceProcessor.renameFiles()
+    )
+    .pipe(
+        gulp.dest(config.dest)
     );
+
 });
 
-// 替换 html 中的引用
-gulp.task('replace-html-dependency', function () {
+
+// 替换引用
+gulp.task('version-replace-dependency', function () {
     return gulp.src(
-        path.join(config.outputDir, config.viewName, '**/*.html')
+        tool.mergeArray(
+            path.join(config.outputDir, config.viewName, '**/*.html'),
+            hashAmdFiles,
+            hashCssFiles
+        )
     )
     .pipe(
         resourceProcessor.replaceFileDependencies({
-            type: 'html',
-            customReplace: function (content) {
+            customReplace: function (file, content) {
+
+                var extname = path.extname(file.path).toLowerCase();
+                if (extname !== '.html') {
+                    return;
+                }
 
                 var list = resourceProcessor.parseAmdConfig(content);
 
@@ -226,53 +211,14 @@ gulp.task('replace-html-dependency', function () {
 
 
 
-gulp.task('replace-amd-dependency', function () {
-    return gulp.src(
-        hashAmdFiles
-    )
-    .pipe(
-        resourceProcessor.replaceFileDependencies({
-            type: 'amd'
-        })
-    )
-    .pipe(
-        gulp.dest(config.dest)
-    );
-});
-
-gulp.task('replace-css-dependency', function () {
-    return gulp.src(
-        hashCssFiles
-    )
-    .pipe(
-        resourceProcessor.replaceFileDependencies({
-            type: 'css'
-        })
-    )
-    .pipe(
-        gulp.dest(config.dest)
-    );
-});
-
 // 上面这些 task 必须按下面的顺序执行
 gulp.task(
     'version-batch',
     sequence(
-        'create-hash-map',
-        [
-            'create-amd-dependency-map',
-            'create-css-dependency-map'
-        ],
-        'create-hash-file',
-        [
-            'pick-hash-amd-file',
-            'pick-hash-css-file'
-        ],
-        [
-            'replace-html-dependency',
-            'replace-amd-dependency',
-            'replace-css-dependency'
-        ]
+        'version-create-hash-map',
+        'version-create-dependency-map',
+        'version-create-hash-file',
+        'version-replace-dependency'
     )
 );
 
@@ -282,32 +228,29 @@ gulp.task(
     ['version-batch'],
     function (callback) {
 
-        if (!config.buildSrc) {
-            callback();
-            return;
-        }
+        var prevHashMap = config.hashMap;
+        var prevDependencyMap = config.dependencyMap;
 
-        var hashMap = resourceProcessor.hashMap;
-        var data = { };
+        var currentHashMap = resourceProcessor.hashMap;
+        var currentDependencyMap = resourceProcessor.dependencyMap;
 
-        for (var key in hashMap) {
-            data[ relativeProjectFile(key) ] = hashMap[ key ];
-        }
+        tool.extend(
+            prevHashMap,
+            currentHashMap
+        );
 
-        tool.writeJSON(config.hashMapFile, data);
+        tool.extend(
+            prevDependencyMap,
+            currentDependencyMap
+        );
 
+        tool.writeHashMapFile(
+            prevHashMap
+        );
 
-        data = { };
-
-        var dependencyMap = resourceProcessor.dependencyMap;
-
-        for (var key in dependencyMap) {
-            data[ relativeProjectFile(key) ] = dependencyMap[ key ].map(
-                relativeProjectFile
-            );
-        }
-
-        tool.writeJSON(config.dependencyMapFile, data);
+        tool.writeDependencyMapFile(
+            prevDependencyMap
+        );
 
         callback();
 

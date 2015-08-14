@@ -7,13 +7,9 @@ var path = require('path');
 var gulp = require('gulp');
 
 var ignore = require('gulp-ignore');
-
 var Resource = require('gulp-resource');
 
-var argv = require('yargs').argv;
-
-// 命令行参数
-var buildDep = argv.dep;
+var tool = require('./tool');
 
 
 // 项目下的所有 src 目录都会转成 asset，不限于 project/src
@@ -66,6 +62,9 @@ exports.outputDir = path.join(exports.projectDir, 'output');
  */
 exports.hashMapFile = path.join(exports.projectDir, 'hash.json');
 
+exports.hashMap = tool.readHashMapFile(exports.hashMapFile) || { };
+
+
 /**
  * 静态资源依赖表
  *
@@ -73,30 +72,21 @@ exports.hashMapFile = path.join(exports.projectDir, 'hash.json');
  */
 exports.dependencyMapFile = path.join(exports.projectDir, 'dependency.json');
 
-/**
- * 是否分开编译 src 和 dep
- *
- * @type {boolean}
- */
-exports.separateBuild = false;
+exports.dependencyMap = tool.readDependencyMapFile(exports.dependencyMapFile) || { };
 
 /**
  * 是否要 build src 目录
  *
  * @type {boolean}
  */
-exports.buildSrc = exports.separateBuild
-                 ? !buildDep
-                 : true;
+exports.buildSrc = true;
 
 /**
  * 是否要 build dep 目录
  *
  * @type {boolean}
  */
-exports.buildDep = exports.separateBuild
-                 ? buildDep
-                 : true;
+exports.buildDep = true;
 
 /**
  * 是否为上线版本
@@ -303,7 +293,10 @@ exports.filter = function () {
 
     return ignore.exclude([
         '**/test/**/*',
+        '**/testcases/**/*',
+        '**/doc/**/*',
         '**/demo/**/*',
+        '**/demo-files/**/*',
         'edp-*'
     ]);
 
@@ -399,24 +392,6 @@ exports.replaceRequireConfig = function (data) {
     }
 
     return config;
-
-};
-
-/**
- * 改写文件名，添加 hash 后缀
- *
- * @param {string} filePath
- * @param {string} hash
- * @return {string}
- */
-exports.appendFileHash = function (filePath, hash) {
-
-    var extName = path.extname(filePath);
-
-    return path.join(
-        path.dirname(filePath),
-        path.basename(filePath, extName) + '_' + hash + extName
-    );
 
 };
 
@@ -534,6 +509,13 @@ exports.resourceProcessor = (function () {
         return path.relative(dir, file).indexOf('..') < 0;
     };
 
+    /**
+     * 根据文件路径获取不同的 amd config
+     *
+     * @inner
+     * @param {string} filePath
+     * @return {Object}
+     */
     var getAmdConfig = function (filePath) {
 
         if (inDirectory(exports.outputDir, filePath)) {
@@ -548,6 +530,25 @@ exports.resourceProcessor = (function () {
 
     };
 
+    /**
+     * 改写文件名，添加 hash 后缀
+     *
+     * @inner
+     * @param {string} filePath
+     * @param {string} hash
+     * @return {string}
+     */
+    var appendFileHash = function (filePath, hash) {
+
+        var extName = path.extname(filePath);
+
+        return path.join(
+            path.dirname(filePath),
+            path.basename(filePath, extName) + '_' + hash + extName
+        );
+
+    };
+
     var instance = new Resource({
         getAmdConfig: getAmdConfig,
         renameFile: function (file, hash) {
@@ -555,61 +556,74 @@ exports.resourceProcessor = (function () {
             var filePath = file.path;
 
             if (hash) {
-                filePath = exports.appendFileHash(filePath, hash);
+                filePath = appendFileHash(filePath, hash);
             }
 
             return exports.replaceResource(filePath);
 
         },
-        renameDependency: function (dependency, hash) {
+        renameDependency: function (file, dependency, hash) {
 
             var filePath = dependency.raw;
 
             if (hash) {
-                filePath = exports.appendFileHash(filePath, hash);
+                filePath = appendFileHash(filePath, hash);
             }
 
             return exports.replaceResource(filePath);
 
         },
-        filterDependency: function (dependency) {
+        filterDependency: function (file, dependency) {
             if (errorFilePattern.test(dependency.absolute)) {
                 console.log('[INFO][error dependency]');
                 console.log(dependency);
                 return true;
             }
         },
-        correctDependency: function (dependency, file) {
+        correctDependency: function (file, dependency) {
 
             var absolute = dependency.absolute;
+            var extname = path.extname(file.path);
 
-            var inOutput = inDirectory(exports.outputDir, file.path);
+            if (extname === '.styl') {
 
-            var rootDir = inOutput
-                        ? exports.outputDir
-                        : exports.projectDir;
+                absolute = path.join(
+                    exports.srcDir,
+                    dependency.raw
+                );
 
-            var srcDir = inOutput
-                       ? path.join(exports.outputDir, exports.assetName)
-                       : exports.srcDir;
+            }
 
-            var depDir = inOutput
-                       ? path.join(exports.outputDir, exports.depName)
-                       : exports.depDir;
+            else if (extname === '.html') {
 
-            var customPrefixs = {
-                '{{ $ueditor_home }}': path.join(depDir, 'ueditor/1.4.3/src'),
-                '{{ $static_origin }}/': rootDir,
-                '/src/': srcDir
-            };
+                var inOutput = inDirectory(exports.outputDir, file.path);
 
-            for (var prefix in customPrefixs) {
-                if (absolute.indexOf(prefix) === 0) {
-                    absolute = path.join(
-                        customPrefixs[prefix],
-                        absolute.substr(prefix.length)
-                    );
-                    break;
+                var rootDir = inOutput
+                            ? exports.outputDir
+                            : exports.projectDir;
+
+                var srcDir = inOutput
+                           ? path.join(exports.outputDir, exports.assetName)
+                           : exports.srcDir;
+
+                var depDir = inOutput
+                           ? path.join(exports.outputDir, exports.depName)
+                           : exports.depDir;
+
+                var customPrefixs = {
+                    '{{ $ueditor_home }}': path.join(depDir, 'ueditor/1.4.3/src'),
+                    '{{ $static_origin }}/': rootDir,
+                    '/src/': srcDir
+                };
+
+                for (var prefix in customPrefixs) {
+                    if (absolute.indexOf(prefix) === 0) {
+                        absolute = path.join(
+                            customPrefixs[prefix],
+                            absolute.substr(prefix.length)
+                        );
+                        break;
+                    }
                 }
             }
 

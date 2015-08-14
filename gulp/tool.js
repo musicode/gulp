@@ -4,6 +4,9 @@
  */
 
 var fs = require('fs');
+var path = require('path');
+
+var minimatch = require('minimatch');
 
 var config = require('./config');
 
@@ -56,10 +59,17 @@ exports.compileStylus = function () {
     return gulpStylus({
         'resolve url': true,
         define: {
-            url: stylus.resolver()
+            url: stylus.resolver({
+                paths: [
+                    config.srcDir
+                ]
+            })
         },
+        paths: [
+            config.srcDir
+        ],
         use: rider()
-    });
+   });
 };
 
 
@@ -103,6 +113,108 @@ exports.minifyImage = function () {
     });
 };
 
+/**
+ * 扩展对象
+ *
+ * @param {Object} source
+ * @param {Object} target
+ */
+exports.extend = function (source, target) {
+    for (var key in target) {
+        source[ key ] = target[ key ];
+    }
+};
+
+/**
+ * 合并数组
+ *
+ * @return {Array.<string>}
+ */
+exports.mergeArray = function () {
+
+    var result = [ ];
+
+    var addItem = function (item) {
+        result.push(item);
+    };
+
+    for (var i = 0, len = arguments.length, item; i < len; i++) {
+
+        item = arguments[i];
+
+        if (item) {
+
+            if (Array.isArray(item)) {
+                item.forEach(addItem);
+            }
+            else {
+                addItem(item);
+            }
+
+        }
+
+    }
+
+    return result;
+
+};
+
+/**
+ * push 一个数组
+ *
+ * @param {Array} source
+ * @param {Array} target
+ */
+exports.pushArray = function (source, target) {
+
+    target.forEach(function (item) {
+        source.push(item);
+    });
+
+};
+
+/**
+ *
+ * filePath 是否能匹配 files 中的至少一项
+ *
+ * @param {string} filePath
+ * @param {Array.<string>} files
+ * @return {boolean}
+ */
+exports.inFiles = function (filePath, files) {
+
+    var result = false;
+
+    files.forEach(function (pattern) {
+        if (exports.matchPath(filePath, pattern)) {
+            result = true;
+        }
+    });
+
+    return result;
+};
+
+/**
+ * 读取 json 数据
+ *
+ * @param {string} file
+ * @return {Object?}
+ */
+exports.readJSON = function (file) {
+
+    var json;
+
+    try {
+        json = fs.readFileSync(file).toString();
+        json = JSON.parse(json);
+    }
+    catch (e) {
+        json = null;
+    }
+
+    return json;
+
+};
 
 /**
  * 持久化 json 数据
@@ -111,8 +223,124 @@ exports.minifyImage = function () {
  * @param {Object|Array} json
  */
 exports.writeJSON = function (file, json) {
-    fs.writeFile(
-        file,
-        JSON.stringify(json, null, 4)
-    );
+    try {
+        fs.writeFileSync(
+            file,
+            JSON.stringify(json, null, 4)
+        );
+    }
+    catch (e) {
+
+    }
+};
+
+/**
+ * 读取哈希表文件
+ *
+ * @return {Object}
+ */
+exports.readHashMapFile = function () {
+
+    var hashMap = exports.readJSON(config.hashMapFile) || { };
+
+    for (var key in hashMap) {
+        hashMap[ exports.projectToAbsolute(key) ] = hashMap[ key ];
+        delete hashMap[ key ];
+    }
+
+    return hashMap;
+
+};
+
+/**
+ * 写入哈希表文件
+ *
+ * @param {Object} data
+ * @return {Object}
+ */
+exports.writeHashMapFile = function (hashMap) {
+
+    for (var key in hashMap) {
+        hashMap[ exports.absoluteToProject(key) ] = hashMap[ key ];
+        delete hashMap[ key ];
+    }
+
+    exports.writeJSON(config.hashMapFile, hashMap);
+
+};
+
+
+/**
+ * 读取依赖表文件
+ *
+ * @return {Object}
+ */
+exports.readDependencyMapFile = function () {
+
+    var dependencyMap = exports.readJSON(config.dependencyMapFile) || { };
+
+    for (var key in dependencyMap) {
+        dependencyMap[ exports.projectToAbsolute(key) ] = dependencyMap[ key ].map(
+            function (filePath) {
+                return exports.projectToAbsolute(filePath);
+            }
+        );
+        delete dependencyMap[ key ];
+    }
+
+    return dependencyMap;
+
+};
+
+/**
+ * 写入依赖表文件
+ *
+ * @param {Object} data
+ * @return {Object}
+ */
+exports.writeDependencyMapFile = function (dependencyMap) {
+
+    for (var key in dependencyMap) {
+        dependencyMap[ exports.absoluteToProject(key) ] = dependencyMap[ key ].map(
+            function (filePath) {
+                return exports.absoluteToProject(filePath);
+            }
+        );
+        delete dependencyMap[ key ];
+    }
+
+    exports.writeJSON(config.dependencyMapFile, dependencyMap);
+
+};
+
+/**
+ * 文件绝对路径转为相对于项目目录
+ *
+ * @param filePath
+ * @return {string}
+ */
+exports.absoluteToProject = function (filePath) {
+    return path.relative(config.projectDir, filePath);
+};
+
+/**
+ * 文件路径从相对项目目录转为绝对路径
+ *
+ * @param filePath
+ * @return {string}
+ */
+exports.projectToAbsolute = function (filePath) {
+    return path.join(config.projectDir, filePath);
+};
+
+
+/**
+ * glob 匹配
+ *
+ * @param {string} filePath
+ * @param {string} pattern
+ * @return {boolean}
+ */
+exports.matchPath = function (filePath, pattern) {
+    return minimatch(filePath, pattern, { matchBase: true });
 };
