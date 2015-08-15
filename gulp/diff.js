@@ -6,9 +6,9 @@
 /**
  * 思路如下：
  *
- * 1. 生成 view src 所有文件的 md5
+ * 1. 生成需要 build 的所有文件的 hashMap 和 dependencyMap
  * 2. 和上一个版本比较是否变化
- * 4. 把比较结果更新到 config.xxxFiles
+ * 3. 把比较结果更新到 config.xxxFiles
  */
 
 var path = require('path');
@@ -115,17 +115,18 @@ function classifyFile(file, callback) {
  */
 function filterLeaf(file) {
 
-    var filePath = file.path;
+    var noLeafMap = {
+        '.js': 1,
+        '.css': 1,
+        '.less': 1,
+        '.styl': 1
+    };
 
-    if (amdFiles.indexOf(filePath) >= 0
-        || lessFiles.indexOf(filePath) >= 0
-        || stylusFiles.indexOf(filePath) >= 0
-        || cssFiles.indexOf(filePath) >= 0
-    ) {
-        return false;
-    }
+    var noLeaf = noLeafMap[
+        path.extname(file.path).toLowerCase()
+    ];
 
-    return true;
+    return !noLeaf;
 
 }
 
@@ -186,6 +187,9 @@ function analyzeResource(files) {
 
 function filterResource(files) {
     return gulp.src(files)
+    .pipe(
+        config.filter()
+    )
     .pipe(
         config.resourceProcessor.custom(filterByCompareVersions)
     );
