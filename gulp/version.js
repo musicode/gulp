@@ -62,6 +62,27 @@ function toAssetFiles(files) {
 }
 
 
+gulp.task('version-merge-prev', function (callback) {
+
+    var prevHashMap = config.hashMap;
+    var prevDependencyMap = config.dependencyMap;
+
+    var currentHashMap = resourceProcessor.hashMap;
+    var currentDependencyMap = resourceProcessor.dependencyMap;
+
+    tool.extend(
+        currentHashMap,
+        prevHashMap
+    );
+
+    tool.extend(
+        currentDependencyMap,
+        prevDependencyMap
+    );
+
+    callback();
+
+});
 
 // 扫描 assetDir，建立全量静态资源哈希表
 gulp.task('version-create-hash-map', function () {
@@ -215,6 +236,7 @@ gulp.task('version-replace-dependency', function () {
 gulp.task(
     'version-batch',
     sequence(
+        'version-merge-prev',
         'version-create-hash-map',
         'version-create-dependency-map',
         'version-create-hash-file',
@@ -228,28 +250,12 @@ gulp.task(
     ['version-batch'],
     function (callback) {
 
-        var prevHashMap = config.hashMap;
-        var prevDependencyMap = config.dependencyMap;
-
-        var currentHashMap = resourceProcessor.hashMap;
-        var currentDependencyMap = resourceProcessor.dependencyMap;
-
-        tool.extend(
-            prevHashMap,
-            currentHashMap
-        );
-
-        tool.extend(
-            prevDependencyMap,
-            currentDependencyMap
-        );
-
         tool.writeHashMapFile(
-            prevHashMap
+            resourceProcessor.hashMap
         );
 
         tool.writeDependencyMapFile(
-            prevDependencyMap
+            resourceProcessor.dependencyMap
         );
 
         callback();
