@@ -591,7 +591,7 @@ exports.resourceProcessor = (function () {
         correctDependency: function (file, dependency) {
 
             var absolute = dependency.absolute;
-            var extname = path.extname(file.path);
+            var extname = path.extname(file.path).toLowerCase();
 
             if (extname === '.styl') {
 
@@ -601,7 +601,6 @@ exports.resourceProcessor = (function () {
                 );
 
             }
-
             else {
 
                 var inOutput = inDirectory(exports.outputDir, file.path);
