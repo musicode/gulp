@@ -594,7 +594,7 @@ exports.resourceProcessor = (function () {
 
             }
 
-            else if (extname === '.html') {
+            else {
 
                 var inOutput = inDirectory(exports.outputDir, file.path);
 

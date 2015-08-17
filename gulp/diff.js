@@ -21,6 +21,8 @@ var config = require('./config');
 var tool = require('./tool');
 
 
+var resourceProcessor = config.resourceProcessor;
+
 var amdFiles = [ ];
 var jsFiles = [ ];
 var lessFiles = [ ];
@@ -139,13 +141,13 @@ function filterLeaf(file) {
  */
 function filterByCompareVersions(file, callback) {
 
-    var prevHash = config.resourceProcessor.getFileHash(
+    var prevHash = resourceProcessor.getFileHash(
         file,
         config.hashMap,
         config.dependencyMap
     );
 
-    var currentHash = config.resourceProcessor.getFileHash(file);
+    var currentHash = resourceProcessor.getFileHash(file);
 
     var filePath = file.path;
 
@@ -172,16 +174,16 @@ function analyzeResource(files) {
         config.filter()
     )
     .pipe(
-        config.resourceProcessor.analyzeFileHash()
+        resourceProcessor.analyzeFileHash()
     )
     .pipe(
-        config.resourceProcessor.custom(classifyFile)
+        resourceProcessor.custom(classifyFile)
     )
     .pipe(
         ignore(filterLeaf)
     )
     .pipe(
-        config.resourceProcessor.analyzeFileDependencies()
+        resourceProcessor.analyzeFileDependencies()
     );
 }
 
@@ -191,10 +193,15 @@ function filterResource(files) {
         config.filter()
     )
     .pipe(
-        config.resourceProcessor.custom(filterByCompareVersions)
+        resourceProcessor.custom(filterByCompareVersions)
     );
 }
 
+
+function updateFiles(currentFiles, newFiles) {
+    currentFiles.length = 0;
+    tool.pushArray(currentFiles, newFiles);
+}
 
 gulp.task('diff-analyze', function () {
     return analyzeResource(
@@ -226,21 +233,13 @@ gulp.task('diff-filter', function () {
 
 gulp.task('diff-update', function (callback) {
 
-    config.amdFiles.length = 0;
-    config.jsFiles.length = 0;
-    config.lessFiles.length = 0;
-    config.stylusFiles.length = 0;
-    config.cssFiles.length = 0;
-    config.imageFiles.length = 0;
-    config.otherFiles.length = 0;
-
-    tool.pushArray(config.amdFiles, amdFiles);
-    tool.pushArray(config.jsFiles, jsFiles);
-    tool.pushArray(config.lessFiles, lessFiles);
-    tool.pushArray(config.stylusFiles, stylusFiles);
-    tool.pushArray(config.cssFiles, cssFiles);
-    tool.pushArray(config.imageFiles, imageFiles);
-    tool.pushArray(config.otherFiles, otherFiles);
+    updateFiles(config.amdFiles, amdFiles);
+    updateFiles(config.jsFiles, jsFiles);
+    updateFiles(config.lessFiles, lessFiles);
+    updateFiles(config.stylusFiles, stylusFiles);
+    updateFiles(config.cssFiles, cssFiles);
+    updateFiles(config.imageFiles, imageFiles);
+    updateFiles(config.otherFiles, otherFiles);
 
     callback();
 
