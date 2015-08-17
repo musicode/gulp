@@ -518,15 +518,23 @@ exports.resourceProcessor = (function () {
      */
     var getAmdConfig = function (filePath) {
 
+        var amdConfig;
+
         if (inDirectory(exports.outputDir, filePath)) {
-            return assetAmdConfig;
+            amdConfig = assetAmdConfig;
+        }
+        else {
+            if (inDirectory(exports.depDir, filePath)) {
+                amdConfig = depAmdConfig;
+            }
+            else {
+                amdConfig = srcAmdConfig;
+            }
         }
 
-        if (inDirectory(exports.depDir, filePath)) {
-            return depAmdConfig;
-        }
+        amdConfig.minify = exports.release;
 
-        return srcAmdConfig;
+        return amdConfig;
 
     };
 
