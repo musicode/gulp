@@ -532,8 +532,6 @@ exports.resourceProcessor = (function () {
             }
         }
 
-        amdConfig.minify = exports.release;
-
         return amdConfig;
 
     };
@@ -618,7 +616,6 @@ exports.resourceProcessor = (function () {
                            : exports.depDir;
 
                 var customPrefixs = {
-                    '{{ $ueditor_home }}': path.join(depDir, 'ueditor/1.4.3/src'),
                     '{{ $static_origin }}/': rootDir,
                     '/src/': srcDir
                 };
@@ -672,7 +669,7 @@ exports.resourceProcessor = (function () {
             },
             {
                 // 自定义替换格式
-                pattern: /['"]{{ \$static_origin }}\/src\/[^'"]+['"]/g,
+                pattern: /\$custom_path\s*=\s*['"][^'"]+['"]/g,
                 match: function (result) {
                     var terms = result.split(/['"]/);
                     if (terms.length === 3) {

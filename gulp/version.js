@@ -26,6 +26,7 @@ var path = require('path');
 var gulp = require('gulp');
 
 var sequence = require('gulp-sequence');
+var ignore = require('gulp-ignore');
 
 var config = require('./config');
 var tool = require('./tool');
@@ -35,6 +36,25 @@ var tool = require('./tool');
 var resourceProcessor = config.resourceProcessor;
 
 var assetDir = path.join(config.outputDir, config.assetName);
+
+
+function toOutputFiles(files) {
+
+    var result = [ ];
+
+    files.forEach(function (file) {
+
+        if (file.indexOf(config.projectDir) === 0) {
+            result.push(
+                file.replace(config.projectDir, config.outputDir)
+            );
+        }
+
+    });
+
+    return result;
+
+}
 
 /**
  * 把 srcDir 的文件转到 assetDir
@@ -84,182 +104,244 @@ gulp.task('version-merge-prev', function (callback) {
 
 });
 
-// 扫描 assetDir，建立全量静态资源哈希表
-gulp.task('version-create-hash-map', function () {
-
-    return gulp.src(
-        path.join(assetDir, '**/*.*')
-    )
-    .pipe(
-        resourceProcessor.analyzeFileHash()
-    );
-
-});
-
-// 扫描 assetDir，建立全量静态资源依赖表
-gulp.task('version-create-dependency-map', function () {
-
-    return gulp.src(
-        tool.mergeArray(
-            path.join(assetDir, '**/*.css'),
-            toAssetFiles(config.amdFiles)
-        )
-    )
-    .pipe(
-        resourceProcessor.analyzeFileDependencies()
-    );
-
-});
 
 // 生成 hash 文件后，静态资源目录至少有两个版本
 // 如 a.js 和 a_sdfs.js，这时要挑出哈希后的文件做引用替换
+var htmlFiles = [ ];
+var amdFiles = [ ];
+var cssFiles = [ ];
 var hashAmdFiles = [ ];
 var hashCssFiles = [ ];
 
-// 生成带有 hash 后缀的静态资源文件
-gulp.task('version-create-hash-file', function () {
 
+// 扫描 assetDir，建立全量静态资源哈希表和依赖表
+gulp.task('version-calculate', function (callback) {
+
+    var outputHtmlFiles = toOutputFiles(config.htmlFiles);
     var assetAmdFiles = toAssetFiles(config.amdFiles);
 
-    return gulp.src(
-        path.join(assetDir, '**/*.*')
+    var getFiles = function (filePath, hasHash) {
+
+        var files;
+
+        switch (path.extname(filePath).toLowerCase()) {
+
+            case '.js':
+                if (tool.inFiles(filePath, assetAmdFiles)) {
+                    files = hasHash ? hashAmdFiles : amdFiles;
+                }
+                break;
+
+            case '.css':
+                files = hasHash ? hashCssFiles : cssFiles;
+                break;
+
+            default:
+                if (tool.inFiles(filePath, outputHtmlFiles)) {
+                    files = htmlFiles;
+                }
+                break;
+        }
+
+        return files;
+
+    };
+
+    var hasHashMap = false;
+    var hasDenpendencyMap = false;
+
+    var hashMapReady = function () {
+        hasHashMap = true;
+        mapReady();
+    };
+
+    var dependencyMapReady = function () {
+        hasDenpendencyMap = true;
+        mapReady();
+    };
+
+    var mapReady = function () {
+
+        if (!hasHashMap || !hasDenpendencyMap) {
+            return;
+        }
+
+        gulp.src(
+            path.join(assetDir, '**/*')
+        )
+        .pipe(
+            resourceProcessor.custom(
+                function (file, callback) {
+
+                    var hashFilePath = resourceProcessor.getHashFilePath(file);
+                    if (hashFilePath) {
+                        var files = getFiles(file.path, true);
+                        if (files) {
+                            files.push(hashFilePath);
+                        }
+                    }
+
+                    callback();
+
+                }
+            )
+        )
+        .pipe(
+            resourceProcessor.renameFiles()
+        )
+        .pipe(
+            gulp.dest(config.dest)
+        )
+        .once('end', replaceDependencies);
+
+    };
+
+    var replaceDependencies = function () {
+
+        gulp.src(
+            tool.mergeArray(htmlFiles, hashAmdFiles, hashCssFiles)
+        )
+        .pipe(
+            resourceProcessor.replaceFileDependencies({
+                customReplace: function (file, content) {
+
+                    var extname = path.extname(file.path).toLowerCase();
+                    if (extname !== '.html') {
+                        return;
+                    }
+
+                    var list = resourceProcessor.parseAmdConfig(content);
+
+                    if (Array.isArray(list) && list.length > 0) {
+
+                        var parts = [ ];
+                        var fromIndex = 0;
+
+                        list.forEach(function (item, index) {
+
+                            parts.push(
+                                content.substring(fromIndex, item.fromIndex)
+                            );
+
+                            var code;
+
+                            if (item.data) {
+                                code = JSON.stringify(
+                                    config.replaceRequireConfig(item.data),
+                                    null,
+                                    item.indentBase
+                                );
+                            }
+                            else {
+                                code = content.substring(
+                                    item.fromIndex,
+                                    item.toIndex
+                                );
+                            }
+
+                            parts.push(code);
+
+                            fromIndex = item.toIndex;
+
+                        });
+
+                        parts.push(
+                            content.substring(fromIndex)
+                        );
+
+                        return parts.join('');
+
+                    }
+                }
+            })
+        )
+        .pipe(
+            gulp.dest(config.dest)
+        )
+        .once('end', callback);
+
+    };
+
+    var allFiles = gulp.src(
+        tool.mergeArray(
+            outputHtmlFiles,
+            path.join(assetDir, '**/*.*')
+        )
     )
     .pipe(
         resourceProcessor.custom(
             function (file, callback) {
 
-                var hashFilePath = resourceProcessor.getHashFilePath(file);
-
-                if (hashFilePath) {
-                    switch (path.extname(hashFilePath).toLowerCase()) {
-
-                        case '.js':
-                            if (tool.inFiles(file.path, assetAmdFiles)) {
-                                hashAmdFiles.push(hashFilePath);
-                            }
-                            break;
-
-                        case '.css':
-                            hashCssFiles.push(hashFilePath);
-                            break;
-
-                    }
+                var files = getFiles(file.path);
+                if (files) {
+                    files.push(file.path)
                 }
 
                 callback();
 
             }
         )
-    )
-    .pipe(
-        resourceProcessor.renameFiles()
-    )
-    .pipe(
-        gulp.dest(config.dest)
     );
 
-});
-
-
-// 替换引用
-gulp.task('version-replace-dependency', function () {
-    return gulp.src(
-        tool.mergeArray(
-            path.join(config.outputDir, config.viewName, '**/*.html'),
-            hashAmdFiles,
-            hashCssFiles
-        )
-    )
+    var assetFiles = allFiles
     .pipe(
-        resourceProcessor.replaceFileDependencies({
-            customReplace: function (file, content) {
-
-                var extname = path.extname(file.path).toLowerCase();
-                if (extname !== '.html') {
-                    return;
-                }
-
-                var list = resourceProcessor.parseAmdConfig(content);
-
-                if (Array.isArray(list) && list.length > 0) {
-
-                    var parts = [ ];
-                    var fromIndex = 0;
-
-                    list.forEach(function (item, index) {
-
-                        parts.push(
-                            content.substring(fromIndex, item.fromIndex)
-                        );
-
-                        var code;
-
-                        if (item.data) {
-                            code = JSON.stringify(
-                                config.replaceRequireConfig(item.data),
-                                null,
-                                item.indentBase
-                            );
-                        }
-                        else {
-                            code = content.substring(
-                                item.fromIndex,
-                                item.toIndex
-                            );
-                        }
-
-                        parts.push(code);
-
-                        fromIndex = item.toIndex;
-
-                    });
-
-                    parts.push(
-                        content.substring(fromIndex)
-                    );
-
-                    return parts.join('');
-
-                }
-            }
+        ignore.exclude(function (file) {
+            return file.path.indexOf(assetDir) !== 0;
         })
     )
     .pipe(
-        gulp.dest(config.dest)
-    );
+        resourceProcessor.analyzeFileHash()
+    )
+    .once('end', hashMapReady);
+
+    var amdCssFiles = assetFiles
+    .pipe(
+        ignore.exclude(function (file) {
+            return amdFiles.indexOf(file.path) < 0
+                && cssFiles.indexOf(file.path) < 0;
+        })
+    )
+    .pipe(
+        resourceProcessor.analyzeFileDependencies()
+    )
+    .once('end', dependencyMapReady);
+
+
 });
 
 
+gulp.task('version-write-file', function (callback) {
 
+    tool.writeHashMapFile(
+        resourceProcessor.hashMap
+    );
 
-// 上面这些 task 必须按下面的顺序执行
-gulp.task(
-    'version-batch',
-    sequence(
-        'version-merge-prev',
-        'version-create-hash-map',
-        'version-create-dependency-map',
-        'version-create-hash-file',
-        'version-replace-dependency'
-    )
-);
+    tool.writeDependencyMapFile(
+        resourceProcessor.dependencyMap
+    );
 
-// 外部使用这个 task
+    if (config.release) {
+        return gulp.src(
+            hashAmdFiles
+        )
+        .pipe(
+            tool.minifyJs()
+        )
+        .pipe(
+            gulp.dest(config.dest)
+        );
+    }
+
+    callback();
+
+});
+
 gulp.task(
     'version',
-    ['version-batch'],
-    function (callback) {
-
-        tool.writeHashMapFile(
-            resourceProcessor.hashMap
-        );
-
-        tool.writeDependencyMapFile(
-            resourceProcessor.dependencyMap
-        );
-
-        callback();
-
-    }
+    sequence(
+        'version-merge-prev',
+        'version-calculate',
+        'version-write-file'
+    )
 );
 

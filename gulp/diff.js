@@ -25,9 +25,9 @@ var resourceProcessor = config.resourceProcessor;
 
 var amdFiles = [ ];
 var jsFiles = [ ];
+var cssFiles = [ ];
 var lessFiles = [ ];
 var stylusFiles = [ ];
-var cssFiles = [ ];
 var imageFiles = [ ];
 var otherFiles = [ ];
 
@@ -141,15 +141,21 @@ function filterLeaf(file) {
  */
 function filterByCompareVersions(file, callback) {
 
+    var filePath = file.path;
+
     var prevHash = resourceProcessor.getFileHash(
-        file,
+        filePath,
         config.hashMap,
-        config.dependencyMap
+        config.dependencyMap,
+        false
     );
 
-    var currentHash = resourceProcessor.getFileHash(file);
-
-    var filePath = file.path;
+    var currentHash = resourceProcessor.getFileHash(
+        filePath,
+        resourceProcessor.hashMap,
+        resourceProcessor.dependencyMap,
+        true
+    );
 
     if (currentHash && prevHash === currentHash) {
 
@@ -209,6 +215,8 @@ gulp.task('diff-analyze', function () {
             config.amdFiles,
             config.jsFiles,
             config.cssFiles,
+            config.lessFiles,
+            config.stylusFiles,
             config.imageFiles,
             config.otherFiles,
             path.join(config.srcDir, '**/*.*'),
@@ -223,6 +231,8 @@ gulp.task('diff-filter', function () {
             config.amdFiles,
             config.jsFiles,
             config.cssFiles,
+            config.lessFiles,
+            config.stylusFiles,
             config.imageFiles,
             config.otherFiles,
             path.join(config.srcDir, '**/*.*'),
@@ -235,9 +245,9 @@ gulp.task('diff-update', function (callback) {
 
     updateFiles(config.amdFiles, amdFiles);
     updateFiles(config.jsFiles, jsFiles);
+    updateFiles(config.cssFiles, cssFiles);
     updateFiles(config.lessFiles, lessFiles);
     updateFiles(config.stylusFiles, stylusFiles);
-    updateFiles(config.cssFiles, cssFiles);
     updateFiles(config.imageFiles, imageFiles);
     updateFiles(config.otherFiles, otherFiles);
 
