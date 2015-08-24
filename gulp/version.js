@@ -26,7 +26,6 @@ var path = require('path');
 var gulp = require('gulp');
 
 var sequence = require('gulp-sequence');
-var ignore = require('gulp-ignore');
 
 var config = require('./config');
 var tool = require('./tool');
@@ -37,7 +36,13 @@ var resourceProcessor = config.resourceProcessor;
 
 var assetDir = path.join(config.outputDir, config.assetName);
 
-
+/**
+ * 把源文件转到 outputDir
+ *
+ * @inner
+ * @param {Array.<string>} files
+ * @return {Array.<string>}
+ */
 function toOutputFiles(files) {
 
     var result = [ ];
@@ -57,31 +62,60 @@ function toOutputFiles(files) {
 }
 
 /**
- * 把 srcDir 的文件转到 assetDir
+ *
+ * 替换内容中的 require.config
  *
  * @inner
- * @param {Array.<string>} files
- * @return {Array.<string>}
+ * @param {string} content
+ * @return {string=}
  */
-function toAssetFiles(files) {
+function replaceRequireConfig(content) {
 
-    var result = [ ];
+    var list = resourceProcessor.parseAmdConfig(content);
 
-    files.forEach(function (file) {
+    if (Array.isArray(list) && list.length > 0) {
 
-        if (file.indexOf(config.srcDir) === 0) {
-            result.push(
-                file.replace(config.srcDir, assetDir)
+        var parts = [ ];
+        var fromIndex = 0;
+
+        list.forEach(function (item, index) {
+
+            parts.push(
+                content.substring(fromIndex, item.fromIndex)
             );
-        }
 
-    });
+            var code;
 
-    return result;
+            if (item.data) {
+                code = JSON.stringify(
+                    config.replaceRequireConfig(item.data),
+                    null,
+                    item.indentBase
+                );
+            }
+            else {
+                code = content.substring(
+                    item.fromIndex,
+                    item.toIndex
+                );
+            }
 
+            parts.push(code);
+
+            fromIndex = item.toIndex;
+
+        });
+
+        parts.push(
+            content.substring(fromIndex)
+        );
+
+        return parts.join('');
+
+    }
 }
 
-
+// 合并上次 build 的 hashMap 和 dependencyMap
 gulp.task('version-merge-prev', function (callback) {
 
     var prevHashMap = config.hashMap;
@@ -105,212 +139,75 @@ gulp.task('version-merge-prev', function (callback) {
 });
 
 
-// 生成 hash 文件后，静态资源目录至少有两个版本
-// 如 a.js 和 a_sdfs.js，这时要挑出哈希后的文件做引用替换
-var htmlFiles = [ ];
-var amdFiles = [ ];
-var cssFiles = [ ];
-var hashAmdFiles = [ ];
-var hashCssFiles = [ ];
-
-
 // 扫描 assetDir，建立全量静态资源哈希表和依赖表
-gulp.task('version-calculate', function (callback) {
+gulp.task('version-calculate', function () {
 
-    var outputHtmlFiles = toOutputFiles(config.htmlFiles);
-    var assetAmdFiles = toAssetFiles(config.amdFiles);
-
-    var getFiles = function (filePath, hasHash) {
-
-        var files;
-
-        switch (path.extname(filePath).toLowerCase()) {
-
-            case '.js':
-                if (tool.inFiles(filePath, assetAmdFiles)) {
-                    files = hasHash ? hashAmdFiles : amdFiles;
-                }
-                break;
-
-            case '.css':
-                files = hasHash ? hashCssFiles : cssFiles;
-                break;
-
-            default:
-                if (tool.inFiles(filePath, outputHtmlFiles)) {
-                    files = htmlFiles;
-                }
-                break;
-        }
-
-        return files;
-
-    };
-
-    var hasHashMap = false;
-    var hasDenpendencyMap = false;
-
-    var hashMapReady = function () {
-        hasHashMap = true;
-        mapReady();
-    };
-
-    var dependencyMapReady = function () {
-        hasDenpendencyMap = true;
-        mapReady();
-    };
-
-    var mapReady = function () {
-
-        if (!hasHashMap || !hasDenpendencyMap) {
-            return;
-        }
-
-        gulp.src(
-            path.join(assetDir, '**/*')
-        )
-        .pipe(
-            resourceProcessor.custom(
-                function (file, callback) {
-
-                    var hashFilePath = resourceProcessor.getHashFilePath(file);
-                    if (hashFilePath) {
-                        var files = getFiles(file.path, true);
-                        if (files) {
-                            files.push(hashFilePath);
-                        }
-                    }
-
-                    callback();
-
-                }
-            )
-        )
-        .pipe(
-            resourceProcessor.renameFiles()
-        )
-        .pipe(
-            gulp.dest(config.dest)
-        )
-        .once('end', replaceDependencies);
-
-    };
-
-    var replaceDependencies = function () {
-
-        gulp.src(
-            tool.mergeArray(htmlFiles, hashAmdFiles, hashCssFiles)
-        )
-        .pipe(
-            resourceProcessor.replaceFileDependencies({
-                customReplace: function (file, content) {
-
-                    var extname = path.extname(file.path).toLowerCase();
-                    if (extname !== '.html') {
-                        return;
-                    }
-
-                    var list = resourceProcessor.parseAmdConfig(content);
-
-                    if (Array.isArray(list) && list.length > 0) {
-
-                        var parts = [ ];
-                        var fromIndex = 0;
-
-                        list.forEach(function (item, index) {
-
-                            parts.push(
-                                content.substring(fromIndex, item.fromIndex)
-                            );
-
-                            var code;
-
-                            if (item.data) {
-                                code = JSON.stringify(
-                                    config.replaceRequireConfig(item.data),
-                                    null,
-                                    item.indentBase
-                                );
-                            }
-                            else {
-                                code = content.substring(
-                                    item.fromIndex,
-                                    item.toIndex
-                                );
-                            }
-
-                            parts.push(code);
-
-                            fromIndex = item.toIndex;
-
-                        });
-
-                        parts.push(
-                            content.substring(fromIndex)
-                        );
-
-                        return parts.join('');
-
-                    }
-                }
-            })
-        )
-        .pipe(
-            gulp.dest(config.dest)
-        )
-        .once('end', callback);
-
-    };
-
-    var allFiles = gulp.src(
-        tool.mergeArray(
-            outputHtmlFiles,
-            path.join(assetDir, '**/*.*')
-        )
+    return gulp.src(
+        path.join(assetDir, '**/*.*')
     )
     .pipe(
-        resourceProcessor.custom(
-            function (file, callback) {
+        resourceProcessor.analyzeHash()
+    )
+    .pipe(
+        resourceProcessor.analyzeDependencies({
+            filter: function (file) {
 
-                var files = getFiles(file.path);
-                if (files) {
-                    files.push(file.path)
+                switch (path.extname(file.path).toLowerCase()) {
+                    case '.js':
+                    case '.css':
+                        return false;
                 }
 
-                callback();
+                return true;
 
             }
-        )
+        })
     );
-
-    var assetFiles = allFiles
-    .pipe(
-        ignore.exclude(function (file) {
-            return file.path.indexOf(assetDir) !== 0;
-        })
-    )
-    .pipe(
-        resourceProcessor.analyzeFileHash()
-    )
-    .once('end', hashMapReady);
-
-    var amdCssFiles = assetFiles
-    .pipe(
-        ignore.exclude(function (file) {
-            return amdFiles.indexOf(file.path) < 0
-                && cssFiles.indexOf(file.path) < 0;
-        })
-    )
-    .pipe(
-        resourceProcessor.analyzeFileDependencies()
-    )
-    .once('end', dependencyMapReady);
-
 
 });
 
+gulp.task('version-replace-view', function () {
 
-gulp.task('version-write-file', function (callback) {
+    return gulp.src(
+        toOutputFiles(config.htmlFiles)
+    )
+    .pipe(
+        resourceProcessor.renameDependencies({
+            replace: function (file, content) {
+                return replaceRequireConfig(content);
+            }
+        })
+    )
+    .pipe(
+        gulp.dest(config.dest)
+    );
+
+});
+
+gulp.task('version-replace-asset', function () {
+
+    return gulp.src(
+        path.join(assetDir, '**/*.*')
+    )
+    .pipe(
+        resourceProcessor.renameDependencies()
+    )
+    .pipe(
+        gulp.dest(config.dest)
+    )
+    .pipe(
+        resourceProcessor.renameFiles()
+    )
+    .pipe(
+        resourceProcessor.renameDependencies()
+    )
+    .pipe(
+        gulp.dest(config.dest)
+    );
+
+});
+
+gulp.task('version-save', function (callback) {
 
     tool.writeHashMapFile(
         resourceProcessor.hashMap
@@ -319,18 +216,6 @@ gulp.task('version-write-file', function (callback) {
     tool.writeDependencyMapFile(
         resourceProcessor.dependencyMap
     );
-
-    if (config.release) {
-        return gulp.src(
-            hashAmdFiles
-        )
-        .pipe(
-            tool.minifyJs()
-        )
-        .pipe(
-            gulp.dest(config.dest)
-        );
-    }
 
     callback();
 
@@ -341,7 +226,9 @@ gulp.task(
     sequence(
         'version-merge-prev',
         'version-calculate',
-        'version-write-file'
+        'version-replace-view',
+        'version-replace-asset',
+        'version-save'
     )
 );
 

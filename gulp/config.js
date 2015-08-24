@@ -145,7 +145,7 @@ exports.cssFiles = [
 
 if (exports.buildDep) {
     exports.cssFiles.push(
-        path.join(exports.depDir, '**/**.css')
+        path.join(exports.depDir, '**/*.css')
     );
 }
 
@@ -166,13 +166,13 @@ exports.jsFiles = [
 
 if (exports.buildDep) {
     exports.jsFiles.push(
-        path.join(exports.depDir, 'base/**/**.js'),
-        path.join(exports.depDir, 'webAnalysis/**/**.js'),
-        path.join(exports.depDir, 'excanvas/**/**.js'),
-        path.join(exports.depDir, 'webSocket/**/**.js')
-//        path.join(exports.depDir, 'im/**/**.js'),
-//        path.join(exports.depDir, 'echarts/**/**.js'),
-//        path.join(exports.depDir, 'ueditor/**/**.js')
+        path.join(exports.depDir, 'base/**/*.js'),
+        path.join(exports.depDir, 'webAnalysis/**/*.js'),
+        path.join(exports.depDir, 'excanvas/**/*.js'),
+        path.join(exports.depDir, 'webSocket/**/*.js')
+//        path.join(exports.depDir, 'im/**/*.js'),
+//        path.join(exports.depDir, 'echarts/**/*.js'),
+//        path.join(exports.depDir, 'ueditor/**/*.js')
     );
 }
 
@@ -194,15 +194,15 @@ if (exports.buildSrc) {
 
 if (exports.buildDep) {
     exports.amdFiles.push(
-       path.join(exports.depDir, 'cobble/**/**.js'),
-       path.join(exports.depDir, 'painter/**/**.js'),
-       path.join(exports.depDir, 'TextClipboard/**/**.js'),
-       path.join(exports.depDir, 'zlib/**/**.js')
+       path.join(exports.depDir, 'cobble/**/*.js'),
+       path.join(exports.depDir, 'painter/**/*.js'),
+       path.join(exports.depDir, 'TextClipboard/**/*.js'),
+       path.join(exports.depDir, 'zlib/**/*.js')
 
-//        path.join(exports.depDir, 'moment/**/**.js'),
-//        path.join(exports.depDir, 'imageCrop/**/**.js'),
-//        path.join(exports.depDir, 'audioPlayer/**/**.js'),
-//        path.join(exports.depDir, 'underscore/**/**.js')
+//        path.join(exports.depDir, 'moment/**/*.js'),
+//        path.join(exports.depDir, 'imageCrop/**/*.js'),
+//        path.join(exports.depDir, 'audioPlayer/**/*.js'),
+//        path.join(exports.depDir, 'underscore/**/*.js')
     );
 }
 
@@ -280,25 +280,30 @@ if (exports.buildDep) {
     });
 }
 
+/**
+ * 需要过滤的文件
+ *
+ * @type {Array}
+ */
+exports.filterFiles = [
+    '**/test/**/*',
+    '**/testcases/**/*',
+    '**/doc/**/*',
+    '**/demo/**/*',
+    '**/demo-files/**/*',
+    '**/*.as',
+    '**/*.psd',
+    'edp-*'
+];
 
 /**
  * 文件是否需要 build
  *
- * @return {boolean|Array|Function}
+ * @return {Function}
  */
 exports.filter = function () {
 
-    // 具体参考 https://github.com/robrich/gulp-match
-    // gulpmatch(file, 这个参数)
-
-    return ignore.exclude([
-        '**/test/**/*',
-        '**/testcases/**/*',
-        '**/doc/**/*',
-        '**/demo/**/*',
-        '**/demo-files/**/*',
-        'edp-*'
-    ]);
+    return ignore.exclude(exports.filterFiles);
 
 };
 
@@ -532,6 +537,8 @@ exports.resourceProcessor = (function () {
             }
         }
 
+        amdConfig.minify = exports.release;
+
         return amdConfig;
 
     };
@@ -555,6 +562,8 @@ exports.resourceProcessor = (function () {
 
     };
 
+
+
     var instance = new Resource({
         getAmdConfig: getAmdConfig,
         renameFile: function (file, hash) {
@@ -568,12 +577,17 @@ exports.resourceProcessor = (function () {
             return exports.replaceResource(filePath);
 
         },
-        renameDependency: function (file, dependency, hash) {
+        renameDependency: function (file, fileHash, dependency, dependencyHash) {
 
             var filePath = dependency.raw;
 
-            if (hash) {
-                filePath = appendFileHash(filePath, hash);
+            if (dependencyHash) {
+                // 只有 asset 目录下的不加 md5 的文件才不加
+                if (!inDirectory(path.join(exports.outputDir, exports.assetName), file.path)
+                    || file.path.indexOf(fileHash) > 0
+                ) {
+                    filePath = appendFileHash(filePath, dependencyHash);
+                }
             }
 
             return exports.replaceResource(filePath);
@@ -591,7 +605,14 @@ exports.resourceProcessor = (function () {
             var absolute = dependency.absolute;
             var extname = path.extname(file.path).toLowerCase();
 
-            if (extname === '.styl') {
+            var inSrc = inDirectory(exports.srcDir, file.path);
+            var inOutput;
+
+            if (!inSrc) {
+                inOutput = inDirectory(exports.outputDir, file.path);
+            }
+
+            if (inSrc && extname === '.styl') {
 
                 absolute = path.join(
                     exports.srcDir,
@@ -601,8 +622,6 @@ exports.resourceProcessor = (function () {
             }
             else {
 
-                var inOutput = inDirectory(exports.outputDir, file.path);
-
                 var rootDir = inOutput
                             ? exports.outputDir
                             : exports.projectDir;
@@ -610,10 +629,6 @@ exports.resourceProcessor = (function () {
                 var srcDir = inOutput
                            ? path.join(exports.outputDir, exports.assetName)
                            : exports.srcDir;
-
-                var depDir = inOutput
-                           ? path.join(exports.outputDir, exports.depName)
-                           : exports.depDir;
 
                 var customPrefixs = {
                     '{{ $static_origin }}/': rootDir,
