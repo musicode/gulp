@@ -292,7 +292,9 @@ exports.filterFiles = [
     '**/demo/**/*',
     '**/demo-files/**/*',
     '**/*.as',
+    '**/*.fla',
     '**/*.psd',
+    '**/*.py',
     'edp-*'
 ];
 
@@ -453,6 +455,11 @@ exports.resourceProcessor = (function () {
                 name: 'TextClipboard',
                 location: '../dep/TextClipboard/0.0.3/src',
                 main: 'TextClipboard'
+            },
+            {
+                name: 'SwfStore',
+                location: '../dep/SwfStore/0.0.1/src',
+                main: 'SwfStore'
             }
         ]
     };
@@ -478,8 +485,8 @@ exports.resourceProcessor = (function () {
                 'moment',
                 'imageCrop',
                 'audioPlayer',
-                'underscore',
-                'TextClipboard'
+                'underscore'
+                // 'TextClipboard'
             ]
 
         },
@@ -518,18 +525,18 @@ exports.resourceProcessor = (function () {
      * 根据文件路径获取不同的 amd config
      *
      * @inner
-     * @param {string} filePath
+     * @param {Object} file
      * @return {Object}
      */
-    var getAmdConfig = function (filePath) {
+    var getAmdConfig = function (file) {
 
         var amdConfig;
 
-        if (inDirectory(exports.outputDir, filePath)) {
+        if (inDirectory(exports.outputDir, file.path)) {
             amdConfig = assetAmdConfig;
         }
         else {
-            if (inDirectory(exports.depDir, filePath)) {
+            if (inDirectory(exports.depDir, file.path)) {
                 amdConfig = depAmdConfig;
             }
             else {
@@ -562,8 +569,6 @@ exports.resourceProcessor = (function () {
 
     };
 
-
-
     var instance = new Resource({
         getAmdConfig: getAmdConfig,
         renameFile: function (file, hash) {
@@ -582,12 +587,16 @@ exports.resourceProcessor = (function () {
             var filePath = dependency.raw;
 
             if (dependencyHash) {
-                // 只有 asset 目录下的不加 md5 的文件才不加
-                if (!inDirectory(path.join(exports.outputDir, exports.assetName), file.path)
-                    || file.path.indexOf(fileHash) > 0
-                ) {
+
+                // 只有不带 md5 的 amd 文件不需要改依赖
+                // 比如 main.js 使用时会写 require(['main'])
+                // 如果改成 define('main_md5', factory)，实际加载不到模块
+
+                if (fileHash && path.extname(file.path).toLowerCase() === '.js') {}
+                else {
                     filePath = appendFileHash(filePath, dependencyHash);
                 }
+
             }
 
             return exports.replaceResource(filePath);
@@ -663,7 +672,7 @@ exports.resourceProcessor = (function () {
                 match: function (result, file) {
                     var terms = result.substring(3, result.length - 3).split('=');
                     return instance.parseAmdDependencies(
-                        file.path,
+                        file,
                         result,
                         terms[1]
                     );
@@ -676,7 +685,7 @@ exports.resourceProcessor = (function () {
                 pattern: /require\s*?\(\s*?(\[?[^{}\]]+\]?)/g,
                 match: function (result, file) {
                     return instance.parseAmdDependencies(
-                        file.path,
+                        file,
                         result,
                         result.replace(/require\s*?\(/, '')
                     );
