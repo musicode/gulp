@@ -114,6 +114,81 @@ exports.minifyImage = function () {
 };
 
 /**
+ * 文件路径移除扩展名
+ *
+ * @param {string} filePath
+ * @return {string}
+ */
+exports.removeExtname = function (filePath) {
+
+    var prefix = './';
+
+    // "./a.js" 重命名为 "./a_123.js"
+    // 但是 path.join('.', 'a.js') 会变成 a.js
+
+    if (filePath.indexOf(prefix) !== 0) {
+        prefix = '';
+    }
+
+    var extName = path.extname(filePath);
+
+    var result = path.join(
+        path.dirname(filePath),
+        path.basename(filePath, extName)
+    );
+
+    if (prefix) {
+        result = prefix + result;
+    }
+
+    return result;
+
+};
+
+/**
+ * 把源文件转到 outputDir
+ *
+ * @inner
+ * @param {Array.<string>} files
+ * @return {Array.<string>}
+ */
+exports.toOutputFiles = function (files) {
+
+    var result = [ ];
+
+    files.forEach(function (file) {
+
+        if (file.indexOf(config.projectDir) === 0) {
+            file = config.replaceResource(
+                file.replace(config.projectDir, config.outputDir)
+            );
+            result.push(file);
+        }
+
+    });
+
+    return result;
+
+};
+
+/**
+ * 改写文件名，添加 hash 后缀
+ *
+ * @inner
+ * @param {string} filePath
+ * @param {string} hash
+ * @return {string}
+ */
+exports.appendFileHash = function (filePath, hash) {
+
+    return exports.removeExtname(filePath)
+         + '_'
+         + hash
+         + path.extname(filePath);
+
+};
+
+/**
  * 扩展对象
  *
  * @param {Object} source

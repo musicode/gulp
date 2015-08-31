@@ -52,7 +52,8 @@ gulp.task(
         'clean',
         'html',
         'diff',
-        ['amd', 'js', 'less', 'stylus', 'css', 'image', 'other'],
+        ['js', 'less', 'stylus', 'css', 'image', 'other'],
+        'amd',
         'version',
         'end'
     )
@@ -65,7 +66,8 @@ gulp.task(
         'clean',
         'html',
         'diff',
-        ['amd', 'js', 'less', 'stylus', 'css', 'image', 'other'],
+        ['js', 'less', 'stylus', 'css', 'image', 'other'],
+        'amd',
         'version',
         'end'
     )

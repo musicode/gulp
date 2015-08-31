@@ -3,8 +3,11 @@
  * @author musicode
  */
 
+var fs = require('fs');
 var path = require('path');
 var gulp = require('gulp');
+
+var html2js = require('html2js');
 
 var ignore = require('gulp-ignore');
 var Resource = require('gulp-resource');
@@ -54,6 +57,13 @@ exports.depDir = path.join(exports.projectDir, exports.depName);
  * @type {string}
  */
 exports.outputDir = path.join(exports.projectDir, 'output');
+
+/**
+ * project/src/ 编译输出目录
+ *
+ * @type {string}
+ */
+exports.assetDir = path.join(exports.outputDir, exports.assetName);
 
 /**
  * 静态资源哈希表
@@ -339,10 +349,7 @@ exports.replaceResource = (function () {
 
         var fileExt = path.extname(filePath).toLowerCase();
         if (extMap[fileExt]) {
-            filePath = path.join(
-                path.dirname(filePath),
-                path.basename(filePath, fileExt) + extMap[fileExt]
-            );
+            filePath = tool.removeExtname(filePath) + extMap[fileExt];
         }
 
         return filePath;
@@ -374,10 +381,32 @@ exports.replaceRequireConfig = function (data) {
 
         config.paths = { };
 
+        var pathValue;
         for (var key in paths) {
-            config.paths[key] = paths[key].indexOf('http') === 0
-                              ? paths[key]
-                              : exports.replaceResource(paths[key]);
+
+            if (paths[key].indexOf('http') === 0) {
+                pathValue = paths[key];
+            }
+            else {
+                pathValue = exports.replaceResource(paths[key]);
+
+                var resourceProcessor = exports.resourceProcessor;
+                if (resourceProcessor) {
+
+                    var hash = resourceProcessor.getFileHash(
+                        path.join(exports.assetDir, pathValue) + '.js',
+                        resourceProcessor.hashMap,
+                        resourceProcessor.dependencyMap
+                    );
+
+                    if (hash) {
+                        pathValue = tool.appendFileHash(pathValue, hash);
+                    }
+                }
+            }
+
+            config.paths[key] = pathValue;
+
         }
     }
 
@@ -490,22 +519,60 @@ exports.resourceProcessor = (function () {
             ]
 
         },
-        replaceRequireResource: function (raw, absolute) {
+        fileReader: {
 
-            // 把 less stylus 改成 css
-            var extName = path.extname(raw);
+            // styl: function (filePath) {
+
+            //     if (inDirectory(exports.srcDir, filePath)) {
+            //         filePath = tool.toOutputFiles([ filePath ])[0];
+            //         filePath = tool.removeExtname(filePath) + '.css';
+            //     }
+
+            //     var resourceId = exports.resourceProcessor.filePathToResourceId(filePath, assetAmdConfig);
+
+            //     // 去掉扩展名，变成模块 ID
+            //     resourceId = tool.removeExtname(resourceId);
+
+            //     // content 转为字符串拼接
+            //     var code = html2js(
+            //         fs.readFileSync(filePath, 'utf-8'),
+            //         {
+            //             mode: 'format'
+            //         }
+            //     );
+
+            //     return 'define("' + resourceId + '", [], function () { return ' + code + '})';
+
+            // }
+
+        },
+        replaceRequireResource: function (resource, absolute) {
+
+            var result;
+
+            var id = resource.id;
+
+            var extName = path.extname(id);
 
             switch (extName.toLowerCase()) {
                 case '.less':
                 case '.styl':
-                    raw = path.join(
-                        path.dirname(raw),
-                        path.basename(raw, extName) + '.css'
-                    );
+                case '.css':
+
+                    result = { };
+
+                    if (resource.plugin === 'text') {
+                        result.id = tool.removeExtname(id);
+                        result.plugin = '';
+                    }
+                    else {
+                        result.id = tool.removeExtname(id) + '.css';
+                    }
+
                     break;
             }
 
-            return raw;
+            return result;
 
         },
         replaceRequireConfig: function (data) {
@@ -514,7 +581,7 @@ exports.resourceProcessor = (function () {
     };
 
     var assetAmdConfig = exports.replaceRequireConfig(srcAmdConfig);
-    assetAmdConfig.baseUrl = path.join(exports.outputDir, exports.assetName);
+    assetAmdConfig.baseUrl = exports.assetDir;
     assetAmdConfig.combine = { };
 
     var inDirectory = function (dir, file) {
@@ -550,25 +617,6 @@ exports.resourceProcessor = (function () {
 
     };
 
-    /**
-     * 改写文件名，添加 hash 后缀
-     *
-     * @inner
-     * @param {string} filePath
-     * @param {string} hash
-     * @return {string}
-     */
-    var appendFileHash = function (filePath, hash) {
-
-        var extName = path.extname(filePath);
-
-        return path.join(
-            path.dirname(filePath),
-            path.basename(filePath, extName) + '_' + hash + extName
-        );
-
-    };
-
     var instance = new Resource({
         getAmdConfig: getAmdConfig,
         renameFile: function (file, hash) {
@@ -576,7 +624,7 @@ exports.resourceProcessor = (function () {
             var filePath = file.path;
 
             if (hash) {
-                filePath = appendFileHash(filePath, hash);
+                filePath = tool.appendFileHash(filePath, hash);
             }
 
             return exports.replaceResource(filePath);
@@ -594,7 +642,7 @@ exports.resourceProcessor = (function () {
 
                 if (fileHash && path.extname(file.path).toLowerCase() === '.js') {}
                 else {
-                    filePath = appendFileHash(filePath, dependencyHash);
+                    filePath = tool.appendFileHash(filePath, dependencyHash);
                 }
 
             }
@@ -636,7 +684,7 @@ exports.resourceProcessor = (function () {
                             : exports.projectDir;
 
                 var srcDir = inOutput
-                           ? path.join(exports.outputDir, exports.assetName)
+                           ? exports.assetDir
                            : exports.srcDir;
 
                 var customPrefixs = {

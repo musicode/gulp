@@ -31,89 +31,8 @@ var config = require('./config');
 var tool = require('./tool');
 
 
-
 var resourceProcessor = config.resourceProcessor;
 
-var assetDir = path.join(config.outputDir, config.assetName);
-
-/**
- * 把源文件转到 outputDir
- *
- * @inner
- * @param {Array.<string>} files
- * @return {Array.<string>}
- */
-function toOutputFiles(files) {
-
-    var result = [ ];
-
-    files.forEach(function (file) {
-
-        if (file.indexOf(config.projectDir) === 0) {
-            result.push(
-                file.replace(config.projectDir, config.outputDir)
-            );
-        }
-
-    });
-
-    return result;
-
-}
-
-/**
- *
- * 替换内容中的 require.config
- *
- * @inner
- * @param {string} content
- * @return {string=}
- */
-function replaceRequireConfig(content) {
-
-    var list = resourceProcessor.parseAmdConfig(content);
-
-    if (Array.isArray(list) && list.length > 0) {
-
-        var parts = [ ];
-        var fromIndex = 0;
-
-        list.forEach(function (item, index) {
-
-            parts.push(
-                content.substring(fromIndex, item.fromIndex)
-            );
-
-            var code;
-
-            if (item.data) {
-                code = JSON.stringify(
-                    config.replaceRequireConfig(item.data),
-                    null,
-                    item.indentBase
-                );
-            }
-            else {
-                code = content.substring(
-                    item.fromIndex,
-                    item.toIndex
-                );
-            }
-
-            parts.push(code);
-
-            fromIndex = item.toIndex;
-
-        });
-
-        parts.push(
-            content.substring(fromIndex)
-        );
-
-        return parts.join('');
-
-    }
-}
 
 // 合并上次 build 的 hashMap 和 dependencyMap
 gulp.task('version-merge-prev', function (callback) {
@@ -139,11 +58,11 @@ gulp.task('version-merge-prev', function (callback) {
 });
 
 
-// 扫描 assetDir，建立全量静态资源哈希表和依赖表
+// 扫描 config.assetDir，建立全量静态资源哈希表和依赖表
 gulp.task('version-calculate', function () {
 
     return gulp.src(
-        path.join(assetDir, '**/*.*')
+        path.join(config.assetDir, '**/*.*')
     )
     .pipe(
         resourceProcessor.analyzeHash()
@@ -169,12 +88,54 @@ gulp.task('version-calculate', function () {
 gulp.task('version-replace-view', function () {
 
     return gulp.src(
-        toOutputFiles(config.htmlFiles)
+        tool.toOutputFiles(config.htmlFiles)
     )
     .pipe(
         resourceProcessor.renameDependencies({
             replace: function (file, content) {
-                return replaceRequireConfig(content);
+
+                var list = resourceProcessor.parseAmdConfig(content);
+
+                if (Array.isArray(list) && list.length > 0) {
+
+                    var parts = [ ];
+                    var fromIndex = 0;
+
+                    list.forEach(function (item, index) {
+
+                        parts.push(
+                            content.substring(fromIndex, item.fromIndex)
+                        );
+
+                        var code;
+
+                        if (item.data) {
+                            code = JSON.stringify(
+                                config.replaceRequireConfig(item.data),
+                                null,
+                                item.indentBase
+                            );
+                        }
+                        else {
+                            code = content.substring(
+                                item.fromIndex,
+                                item.toIndex
+                            );
+                        }
+
+                        parts.push(code);
+
+                        fromIndex = item.toIndex;
+
+                    });
+
+                    parts.push(
+                        content.substring(fromIndex)
+                    );
+
+                    return parts.join('');
+
+                }
             }
         })
     )
@@ -187,7 +148,7 @@ gulp.task('version-replace-view', function () {
 gulp.task('version-replace-asset', function () {
 
     return gulp.src(
-        path.join(assetDir, '**/*.*')
+        path.join(config.assetDir, '**/*.*')
     )
     .pipe(
         resourceProcessor.renameDependencies()
