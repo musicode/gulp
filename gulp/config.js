@@ -521,29 +521,29 @@ exports.resourceProcessor = (function () {
         },
         fileReader: {
 
-            // styl: function (filePath) {
+           styl: function (filePath) {
 
-            //     if (inDirectory(exports.srcDir, filePath)) {
-            //         filePath = tool.toOutputFiles([ filePath ])[0];
-            //         filePath = tool.removeExtname(filePath) + '.css';
-            //     }
+               // if (inDirectory(exports.srcDir, filePath)) {
+               //     filePath = tool.toOutputFiles([ filePath ])[0];
+               //     filePath = tool.removeExtname(filePath) + '.css';
+               // }
 
-            //     var resourceId = exports.resourceProcessor.filePathToResourceId(filePath, assetAmdConfig);
+               // var resourceId = exports.resourceProcessor.filePathToResourceId(filePath, assetAmdConfig);
 
-            //     // 去掉扩展名，变成模块 ID
-            //     resourceId = tool.removeExtname(resourceId);
+               // // 去掉扩展名，变成模块 ID
+               // resourceId = tool.removeExtname(resourceId);
 
-            //     // content 转为字符串拼接
-            //     var code = html2js(
-            //         fs.readFileSync(filePath, 'utf-8'),
-            //         {
-            //             mode: 'format'
-            //         }
-            //     );
+               // // content 转为字符串拼接
+               // var code = html2js(
+               //     fs.readFileSync(filePath, 'utf-8'),
+               //     {
+               //         mode: 'format'
+               //     }
+               // );
 
-            //     return 'define("' + resourceId + '", [], function () { return ' + code + '})';
+               // return 'define("' + resourceId + '", [], function () { return ' + code + '})';
 
-            // }
+           }
 
         },
         replaceRequireResource: function (resource, absolute) {

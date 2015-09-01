@@ -318,8 +318,17 @@ exports.readHashMapFile = function () {
 
     var hashMap = exports.readJSON(config.hashMapFile) || { };
 
+    var absolutePath;
+
     for (var key in hashMap) {
-        hashMap[ exports.projectToAbsolute(key) ] = hashMap[ key ];
+
+        absolutePath = exports.projectToAbsolute(key);
+
+        // 过滤 output 目录下的文件
+        if (absolutePath.indexOf(config.outputDir) !== 0) {
+            hashMap[ absolutePath ] = hashMap[ key ];
+        }
+
         delete hashMap[ key ];
     }
 
@@ -354,13 +363,23 @@ exports.readDependencyMapFile = function () {
 
     var dependencyMap = exports.readJSON(config.dependencyMapFile) || { };
 
+    var absolutePath;
+
     for (var key in dependencyMap) {
-        dependencyMap[ exports.projectToAbsolute(key) ] = dependencyMap[ key ].map(
-            function (filePath) {
-                return exports.projectToAbsolute(filePath);
-            }
-        );
+
+        absolutePath = exports.projectToAbsolute(key);
+
+        // 过滤 output 目录下的文件
+        if (absolutePath.indexOf(config.outputDir) !== 0) {
+            dependencyMap[ absolutePath ] = dependencyMap[ key ].map(
+                function (filePath) {
+                    return exports.projectToAbsolute(filePath);
+                }
+            );
+        }
+
         delete dependencyMap[ key ];
+
     }
 
     return dependencyMap;
